@@ -6,12 +6,19 @@ This is a full-featured Plot Management CRM web application designed for real es
 
 ## Recent Changes (October 2025)
 
+- **Projects & Plots Table Redesign** (Oct 22, 2025): Complete UI overhaul from card-based grid to hierarchical table structure with:
+  - Project-level overview showing total/available/booked/sold plots and total interested buyers
+  - Expandable project rows revealing nested plots table with buyer metrics
+  - Plot-level display of buyer interest count, highest offer, and assigned salespersons
+  - Expandable plot rows showing detailed buyer interests sorted by offered price
+  - Competing offers comparison with price differences highlighted
+  - Salesperson activity tracking visible at both project and plot levels
+  - New `/api/projects/overview` endpoint providing aggregated data in single request
+  - Clean table layout matching leads management interface for consistency
 - **Category-Based Plot Management System** (Oct 22, 2025): Complete overhaul of plot management with category-based filtering (Investment Plot, Bungalow Plot, Residential Plot, Commercial Plot, Open Plot)
 - **Buyer Interest Tracking** (Oct 22, 2025): New buyer interest tracking system allowing salespersons to record potential buyers, offered prices, and negotiations for each plot
 - **Plot Statistics Dashboard** (Oct 22, 2025): Real-time statistics showing total interested buyers, average offered price, and highest offer for each plot
-- **Modern UI with Animations** (Oct 22, 2025): Enhanced plots page with framer-motion animations, gradients, hover effects, and color-coded status cards
-- **Advanced Search & Filters** (Oct 22, 2025): Implemented real-time search by plot ID or location with status-based filtering
-- **Plot Details Modal** (Oct 22, 2025): Comprehensive modal showing plot information, amenities, location, and complete buyer interest history
+- **Advanced Search & Filters** (Oct 22, 2025): Implemented real-time search by project, plot ID, or location with status-based filtering
 - **Edit Button Select Fields Fixed** (Oct 22, 2025): Fixed edit dialog Select components to properly update when editing different leads
 - **MongoDB Migration Complete** (Oct 22, 2025): Successfully migrated project to Replit environment with MongoDB connection via secure environment variables
 - **Rating Categories Updated** (Oct 22, 2025): Lead ratings changed from "Urgent/Intermediate/Low" to "Urgent/High/Low"
