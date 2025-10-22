@@ -241,6 +241,75 @@ export interface SalespersonStats {
   totalRevenue: number;
 }
 
+// ============= Analytics Types =============
+export interface AnalyticsOverview {
+  totalLeads: number;
+  convertedLeads: number;
+  conversionRate: string;
+  totalSalespersons: number;
+  totalRevenue: number;
+  totalBuyerInterests: number;
+  totalBookings: number;
+  avgResponseTime: number;
+  activeLeads: number;
+}
+
+export interface SalespersonPerformance {
+  id: string;
+  name: string;
+  email: string;
+  totalContacts: number;
+  leadsAssigned: number;
+  conversions: number;
+  conversionRate: number;
+  buyerInterestsAdded: number;
+  revenue: number;
+  lastActivity: string | null;
+  lastActivityDetails: string;
+}
+
+export interface DailyMetric {
+  date: string;
+  leadsCreated: number;
+  conversions: number;
+  buyerInterests: number;
+  bookings: number;
+}
+
+export interface MonthlyMetric {
+  month: string;
+  leadsCreated: number;
+  conversions: number;
+  revenue: number;
+}
+
+export interface ActivityTimeline {
+  id: string;
+  userName: string;
+  action: string;
+  entityType: string;
+  details: string;
+  createdAt: string;
+  userDetails: string;
+}
+
+export interface LeadSourceAnalysis {
+  source: string;
+  totalLeads: number;
+  conversions: number;
+  conversionRate: string;
+}
+
+export interface PlotCategoryPerformance {
+  category: string;
+  totalPlots: number;
+  available: number;
+  booked: number;
+  sold: number;
+  avgPrice: number;
+  occupancyRate: string;
+}
+
 // ============= API Response Types =============
 export interface AuthResponse {
   token: string;

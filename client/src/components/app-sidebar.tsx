@@ -1,4 +1,4 @@
-import { Home, Users, Building2, ClipboardList, Settings, LogOut, User } from "lucide-react";
+import { Home, Users, Building2, ClipboardList, Settings, LogOut, User, BarChart3 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +22,7 @@ export function AppSidebar() {
     { title: "Leads", url: "/leads", icon: ClipboardList },
     { title: "Salespersons", url: "/salespersons", icon: Users },
     { title: "Projects & Plots", url: "/plots", icon: Building2 },
+    { title: "Analytics", url: "/analytics", icon: BarChart3 },
     { title: "Settings", url: "/settings", icon: Settings },
   ];
 

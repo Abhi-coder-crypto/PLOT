@@ -14,6 +14,7 @@ import SalespersonDashboard from "@/pages/salesperson-dashboard";
 import Leads from "@/pages/leads";
 import Salespersons from "@/pages/salespersons";
 import Plots from "@/pages/plots";
+import Analytics from "@/pages/analytics";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
@@ -58,6 +59,9 @@ function Router() {
         <Route path="/salespersons" component={() => <ProtectedRoute component={Salespersons} />} />
       )}
       <Route path="/plots" component={() => <ProtectedRoute component={Plots} />} />
+      {isAdmin && (
+        <Route path="/analytics" component={() => <ProtectedRoute component={Analytics} />} />
+      )}
       <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
       <Route path="/" component={() => <ProtectedRoute component={DashboardRoute} />} />
       <Route component={NotFound} />

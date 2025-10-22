@@ -21,7 +21,7 @@ import {
   insertPaymentSchema,
   insertBuyerInterestSchema,
 } from "@shared/schema";
-import { startOfDay, endOfDay } from "date-fns";
+import { startOfDay, endOfDay, startOfMonth, endOfMonth, format } from "date-fns";
 
 export function registerRoutes(app: Express) {
   // ============= Authentication Routes =============
@@ -771,6 +771,343 @@ export function registerRoutes(app: Express) {
     } catch (error: any) {
       console.error("Get salesperson dashboard error:", error);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // Analytics Dashboard Endpoints
+  app.get("/api/analytics/overview", authenticateToken, requireAdmin, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const start = startDate ? new Date(startDate as string) : startOfMonth(new Date());
+      const end = endDate ? new Date(endDate as string) : endOfDay(new Date());
+
+      const [
+        totalLeads,
+        convertedLeads,
+        totalSalespersons,
+        totalRevenue,
+        totalBuyerInterests,
+        totalBookings,
+        avgResponseTime,
+      ] = await Promise.all([
+        LeadModel.countDocuments({ createdAt: { $gte: start, $lte: end } }),
+        LeadModel.countDocuments({ status: "Booked", createdAt: { $gte: start, $lte: end } }),
+        UserModel.countDocuments({ role: "salesperson" }),
+        PaymentModel.aggregate([
+          { $match: { createdAt: { $gte: start, $lte: end } } },
+          { $group: { _id: null, total: { $sum: "$amount" } } },
+        ]).then(result => result[0]?.total || 0),
+        BuyerInterestModel.countDocuments({ createdAt: { $gte: start, $lte: end } }),
+        PaymentModel.countDocuments({ createdAt: { $gte: start, $lte: end } }),
+        LeadModel.aggregate([
+          { 
+            $match: { 
+              createdAt: { $gte: start, $lte: end },
+              firstContactDate: { $exists: true }
+            } 
+          },
+          {
+            $project: {
+              responseTime: {
+                $divide: [
+                  { $subtract: ["$firstContactDate", "$createdAt"] },
+                  1000 * 60 * 60 // Convert to hours
+                ]
+              }
+            }
+          },
+          { $group: { _id: null, avgTime: { $avg: "$responseTime" } } }
+        ]).then(result => Math.round(result[0]?.avgTime || 0))
+      ]);
+
+      const conversionRate = totalLeads > 0 ? ((convertedLeads / totalLeads) * 100).toFixed(2) : "0.00";
+
+      res.json({
+        totalLeads,
+        convertedLeads,
+        conversionRate,
+        totalSalespersons,
+        totalRevenue,
+        totalBuyerInterests,
+        totalBookings,
+        avgResponseTime,
+        activeLeads: totalLeads - convertedLeads,
+      });
+    } catch (error: any) {
+      console.error("Analytics overview error:", error);
+      res.status(500).json({ message: "Failed to fetch analytics overview" });
+    }
+  });
+
+  app.get("/api/analytics/salesperson-performance", authenticateToken, requireAdmin, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const start = startDate ? new Date(startDate as string) : startOfMonth(new Date());
+      const end = endDate ? new Date(endDate as string) : endOfDay(new Date());
+
+      const salespersons = await UserModel.find({ role: "salesperson" });
+      
+      const performanceData = await Promise.all(
+        salespersons.map(async (salesperson) => {
+          const [
+            totalContacts,
+            leadsAssigned,
+            conversions,
+            buyerInterestsAdded,
+            lastActivity,
+            revenue,
+          ] = await Promise.all([
+            ActivityLogModel.countDocuments({
+              userId: salesperson._id,
+              createdAt: { $gte: start, $lte: end },
+            }),
+            LeadModel.countDocuments({
+              assignedTo: salesperson._id,
+              createdAt: { $gte: start, $lte: end },
+            }),
+            LeadModel.countDocuments({
+              assignedTo: salesperson._id,
+              status: "Booked",
+              updatedAt: { $gte: start, $lte: end },
+            }),
+            BuyerInterestModel.countDocuments({
+              salespersonId: salesperson._id,
+              createdAt: { $gte: start, $lte: end },
+            }),
+            ActivityLogModel.findOne({
+              userId: salesperson._id,
+            }).sort({ createdAt: -1 }),
+            PaymentModel.aggregate([
+              {
+                $lookup: {
+                  from: "leads",
+                  localField: "leadId",
+                  foreignField: "_id",
+                  as: "lead",
+                },
+              },
+              { $unwind: "$lead" },
+              {
+                $match: {
+                  "lead.assignedTo": salesperson._id,
+                  createdAt: { $gte: start, $lte: end },
+                },
+              },
+              { $group: { _id: null, total: { $sum: "$amount" } } },
+            ]).then(result => result[0]?.total || 0),
+          ]);
+
+          const conversionRate = leadsAssigned > 0 
+            ? ((conversions / leadsAssigned) * 100).toFixed(2) 
+            : "0.00";
+
+          return {
+            id: String(salesperson._id),
+            name: salesperson.name,
+            email: salesperson.email,
+            totalContacts,
+            leadsAssigned,
+            conversions,
+            conversionRate: parseFloat(conversionRate),
+            buyerInterestsAdded,
+            revenue,
+            lastActivity: lastActivity?.createdAt || null,
+            lastActivityDetails: lastActivity?.details || "No activity",
+          };
+        })
+      );
+
+      // Sort by conversion rate and revenue
+      performanceData.sort((a, b) => b.revenue - a.revenue || b.conversionRate - a.conversionRate);
+
+      res.json(performanceData);
+    } catch (error: any) {
+      console.error("Salesperson performance error:", error);
+      res.status(500).json({ message: "Failed to fetch salesperson performance" });
+    }
+  });
+
+  app.get("/api/analytics/daily-metrics", authenticateToken, requireAdmin, async (req, res) => {
+    try {
+      const { days = 30 } = req.query;
+      const numDays = parseInt(days as string);
+      const endDate = endOfDay(new Date());
+      const startDate = startOfDay(new Date(endDate.getTime() - (numDays * 24 * 60 * 60 * 1000)));
+
+      const dailyData = [];
+      
+      for (let i = 0; i < numDays; i++) {
+        const dayStart = new Date(startDate.getTime() + (i * 24 * 60 * 60 * 1000));
+        const dayEnd = new Date(dayStart.getTime() + (24 * 60 * 60 * 1000) - 1);
+
+        const [leadsCreated, conversions, buyerInterests, bookings] = await Promise.all([
+          LeadModel.countDocuments({ createdAt: { $gte: dayStart, $lte: dayEnd } }),
+          LeadModel.countDocuments({ 
+            status: "Booked", 
+            updatedAt: { $gte: dayStart, $lte: dayEnd } 
+          }),
+          BuyerInterestModel.countDocuments({ createdAt: { $gte: dayStart, $lte: dayEnd } }),
+          PaymentModel.countDocuments({ createdAt: { $gte: dayStart, $lte: dayEnd } }),
+        ]);
+
+        dailyData.push({
+          date: dayStart.toISOString().split('T')[0],
+          leadsCreated,
+          conversions,
+          buyerInterests,
+          bookings,
+        });
+      }
+
+      res.json(dailyData);
+    } catch (error: any) {
+      console.error("Daily metrics error:", error);
+      res.status(500).json({ message: "Failed to fetch daily metrics" });
+    }
+  });
+
+  app.get("/api/analytics/monthly-metrics", authenticateToken, requireAdmin, async (req, res) => {
+    try {
+      const { months = 12 } = req.query;
+      const numMonths = parseInt(months as string);
+      const monthlyData = [];
+
+      for (let i = numMonths - 1; i >= 0; i--) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const monthStart = startOfMonth(date);
+        const monthEnd = endOfMonth(date);
+
+        const [leadsCreated, conversions, revenue] = await Promise.all([
+          LeadModel.countDocuments({ createdAt: { $gte: monthStart, $lte: monthEnd } }),
+          LeadModel.countDocuments({ 
+            status: "Booked", 
+            updatedAt: { $gte: monthStart, $lte: monthEnd } 
+          }),
+          PaymentModel.aggregate([
+            { $match: { createdAt: { $gte: monthStart, $lte: monthEnd } } },
+            { $group: { _id: null, total: { $sum: "$amount" } } },
+          ]).then(result => result[0]?.total || 0),
+        ]);
+
+        monthlyData.push({
+          month: format(monthStart, 'MMM yyyy'),
+          leadsCreated,
+          conversions,
+          revenue,
+        });
+      }
+
+      res.json(monthlyData);
+    } catch (error: any) {
+      console.error("Monthly metrics error:", error);
+      res.status(500).json({ message: "Failed to fetch monthly metrics" });
+    }
+  });
+
+  app.get("/api/analytics/activity-timeline", authenticateToken, requireAdmin, async (req, res) => {
+    try {
+      const { limit = 50, salespersonId } = req.query;
+      
+      const query: any = {};
+      if (salespersonId) {
+        query.userId = salespersonId;
+      }
+
+      const activities = await ActivityLogModel.find(query)
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit as string))
+        .populate("userId", "name email");
+
+      const formattedActivities = activities.map(activity => ({
+        id: String(activity._id),
+        userName: activity.userName,
+        action: activity.action,
+        entityType: activity.entityType,
+        details: activity.details,
+        createdAt: activity.createdAt,
+        userDetails: (activity.userId as any)?.name || activity.userName,
+      }));
+
+      res.json(formattedActivities);
+    } catch (error: any) {
+      console.error("Activity timeline error:", error);
+      res.status(500).json({ message: "Failed to fetch activity timeline" });
+    }
+  });
+
+  app.get("/api/analytics/lead-source-analysis", authenticateToken, requireAdmin, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const start = startDate ? new Date(startDate as string) : startOfMonth(new Date());
+      const end = endDate ? new Date(endDate as string) : endOfDay(new Date());
+
+      const leadSourceData = await LeadModel.aggregate([
+        { $match: { createdAt: { $gte: start, $lte: end } } },
+        { 
+          $group: { 
+            _id: "$source", 
+            count: { $sum: 1 },
+            conversions: {
+              $sum: { $cond: [{ $eq: ["$status", "Booked"] }, 1, 0] }
+            }
+          } 
+        },
+        { $sort: { count: -1 } },
+      ]);
+
+      const formattedData = leadSourceData.map(item => ({
+        source: item._id,
+        totalLeads: item.count,
+        conversions: item.conversions,
+        conversionRate: item.count > 0 
+          ? ((item.conversions / item.count) * 100).toFixed(2) 
+          : "0.00",
+      }));
+
+      res.json(formattedData);
+    } catch (error: any) {
+      console.error("Lead source analysis error:", error);
+      res.status(500).json({ message: "Failed to fetch lead source analysis" });
+    }
+  });
+
+  app.get("/api/analytics/plot-category-performance", authenticateToken, requireAdmin, async (req, res) => {
+    try {
+      const plotData = await PlotModel.aggregate([
+        { 
+          $group: { 
+            _id: "$category", 
+            total: { $sum: 1 },
+            available: {
+              $sum: { $cond: [{ $eq: ["$status", "Available"] }, 1, 0] }
+            },
+            booked: {
+              $sum: { $cond: [{ $eq: ["$status", "Booked"] }, 1, 0] }
+            },
+            sold: {
+              $sum: { $cond: [{ $eq: ["$status", "Sold"] }, 1, 0] }
+            },
+            avgPrice: { $avg: "$price" }
+          } 
+        },
+        { $sort: { total: -1 } },
+      ]);
+
+      const formattedData = plotData.map(item => ({
+        category: item._id,
+        totalPlots: item.total,
+        available: item.available,
+        booked: item.booked,
+        sold: item.sold,
+        avgPrice: Math.round(item.avgPrice),
+        occupancyRate: ((item.booked + item.sold) / item.total * 100).toFixed(2),
+      }));
+
+      res.json(formattedData);
+    } catch (error: any) {
+      console.error("Plot category performance error:", error);
+      res.status(500).json({ message: "Failed to fetch plot category performance" });
     }
   });
 }

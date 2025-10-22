@@ -6,6 +6,17 @@ This is a full-featured Plot Management CRM web application designed for real es
 
 ## Recent Changes (October 2025)
 
+- **Advanced Analytics Dashboard** (Oct 22, 2025): Comprehensive admin analytics system for team performance monitoring with:
+  - 8 KPI overview cards (leads, conversions, revenue, team size, buyer interests, response time, bookings, success rate)
+  - Date range filters (today, this week, this month, last 3/6 months) with accurate date calculations
+  - Salesperson performance leaderboard with conversion rates, revenue, and activity tracking
+  - Daily performance trend chart (30-day line chart)
+  - Monthly revenue & conversions bar chart (12-month trend)
+  - Lead source distribution pie chart for ROI analysis
+  - Plot category occupancy rates stacked bar chart
+  - Real-time activity timeline showing team actions
+  - Performance ranking with gold/silver/bronze badges for top performers
+  - 7 dedicated analytics API endpoints with MongoDB aggregation queries
 - **Projects & Plots Table Redesign** (Oct 22, 2025): Complete UI overhaul from card-based grid to hierarchical table structure with:
   - Project-level overview showing total/available/booked/sold plots and total interested buyers
   - Expandable project rows revealing nested plots table with buyer metrics
