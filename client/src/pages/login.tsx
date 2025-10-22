@@ -42,7 +42,15 @@ export default function Login() {
         title: "Welcome back!",
         description: "You have successfully logged in.",
       });
-      setLocation("/dashboard");
+      
+      // Redirect based on user role
+      setTimeout(() => {
+        if (response.user.role === "admin") {
+          setLocation("/");
+        } else {
+          setLocation("/");
+        }
+      }, 100);
     } catch (error: any) {
       toast({
         title: "Login failed",
