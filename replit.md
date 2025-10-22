@@ -2,7 +2,14 @@
 
 ## Overview
 
-This is a full-featured Plot Management CRM web application designed for real estate businesses to manage leads, salespersons, projects, plots, bookings, and payments. The application features a modern, beautiful UI with a blue-gold color scheme, glassmorphism effects, and smooth animations using Framer Motion. It supports role-based access control with Admin and Salesperson roles, providing different dashboards and capabilities for each user type.
+This is a full-featured Plot Management CRM web application designed for real estate businesses to manage leads, salespersons, projects, plots, bookings, and payments. The application features a modern, beautiful UI with a blue-gold color scheme and glassmorphism effects. It supports role-based access control with Admin and Salesperson roles, providing different dashboards and capabilities for each user type.
+
+## Recent Changes (October 2025)
+
+- **Removed Page Animations**: All fade and transition animations have been removed from page/module switching for instant navigation
+- **Updated Rating Categories**: Lead ratings changed from "Hot/Warm/Cold" to "Urgent/Intermediate/Low" throughout the application
+- **Enhanced Lead Management**: Added View and Edit buttons to Lead Management module with full CRUD functionality
+- **Secure MongoDB Connection**: MongoDB URI now stored securely in Replit Secrets instead of hardcoded values
 
 ## User Preferences
 
@@ -20,8 +27,8 @@ Preferred communication style: Simple, everyday language.
 **UI Component System**
 - **ShadCN/UI** component library built on Radix UI primitives for accessible, unstyled components
 - **Tailwind CSS** for utility-first styling with custom design tokens
-- **Framer Motion** for smooth animations and transitions throughout the UI
 - Design system follows Material Design principles with custom blue-gold branding
+- Instant page transitions without animations for improved performance
 
 **State Management**
 - **TanStack Query (React Query)** for server state management, caching, and data fetching
@@ -31,8 +38,8 @@ Preferred communication style: Simple, everyday language.
 **Design Philosophy**
 - Responsive, mobile-first design with glassmorphism effects
 - Light and dark mode support with theme toggle
-- Color-coded status indicators (Hot/Warm/Cold leads, Available/Booked/Hold plots)
-- Animated dashboard with statistical cards and data visualizations
+- Color-coded status indicators (Urgent/Intermediate/Low leads, Available/Booked/Hold plots)
+- Clean dashboard with statistical cards and data visualizations
 
 ### Backend Architecture
 
@@ -63,7 +70,7 @@ Preferred communication style: Simple, everyday language.
 **Data Models**
 The application uses the following core data models:
 - **User**: Admin and salesperson accounts with authentication credentials
-- **Lead**: Customer leads with contact info, status, rating (Hot/Warm/Cold), source, and assignment to salesperson
+- **Lead**: Customer leads with contact info, status, rating (Urgent/Intermediate/Low), source, and assignment to salesperson
 - **Project**: Real estate projects containing multiple plots
 - **Plot**: Individual plots with size, price, facing direction, and status (Available/Booked/Hold/Sold)
 - **Payment**: Booking payments with amount, mode (Cash/UPI/Cheque/Bank Transfer), and type (Token/Full)
@@ -94,9 +101,14 @@ The application uses the following core data models:
 - **Replit Vite Plugins**: Development enhancements for Replit environment
 
 **Deployment Requirements**
-- Environment variables needed: `MONGODB_URI`, `SESSION_SECRET`, `NODE_ENV`
+- Environment variables needed: `MONGODB_URI` (stored in Replit Secrets), `SESSION_SECRET`, `NODE_ENV`
 - Build process: `vite build` for frontend, `esbuild` for backend
 - Production server runs compiled JavaScript from `/dist` directory
+
+**Security**
+- MongoDB connection string stored securely in Replit Secrets
+- Never commit sensitive credentials to version control
+- Environment variables automatically encrypted and injected at runtime
 
 **Data Seeding**
 - Initial database seed in `/server/seed.ts` creates:
