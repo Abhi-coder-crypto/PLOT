@@ -1,0 +1,61 @@
+Prompt for Replit / Developer
+
+Make the following updates and fixes to my existing MERN (MongoDB, Express, React, Node.js) project.
+Use this MongoDB connection string strictly in all database operations:
+
+mongodb+srv://raneaniket23_db_user:HGCXB9ffo9oHhK6p@plotcrm.xbtlios.mongodb.net/?retryWrites=true&w=majority&appName=PLOTCRM
+
+⚙️ Required Changes
+
+Fix Edit Function in Lead Management Module
+
+The View button is already working properly.
+
+The Edit button currently allows editing but does not save or update the changes in the database.
+
+Fix this so that edited lead details are successfully updated in MongoDB and reflected immediately in the Lead Management UI without needing a page reload.
+
+Remove Page Reload on Module Navigation
+
+Currently, clicking on modules like Dashboard, Lead Management, Settings, etc., triggers a full page reload.
+
+Remove this reload behavior — modules should open instantly or seamlessly using React routing (client-side rendering) without refreshing the browser.
+
+Update Rating Categories
+
+Replace existing rating options (Hot, Warm, Cool) with:
+
+Urgent
+
+High
+
+Low
+
+Ensure that these new labels:
+
+Display correctly in the Lead Management table and forms.
+
+Are saved properly to MongoDB.
+
+Reflect correctly when filtering, adding, or editing leads.
+
+Enhance Project & Plot Modules
+
+Implement logic so that when a salesperson is assigned or receives a lead for a specific project, they can view only the related project details in the Project and Plot section.
+
+The Project and Plot section should dynamically show project details assigned to that user or linked to that lead.
+
+Reference the layout and interaction behavior from https://www.acresland.in/
+ for design inspiration and functionality (project display, animation, and layout improvements).
+
+Make sure the new logic integrates cleanly with the current database structure and follows consistent UI design.
+
+✅ Additional Requirements
+
+Maintain consistent styling and responsiveness across all UI updates.
+
+Verify all MongoDB connections use the provided URI.
+
+Test all modules (Lead Management, Project, Plot, Dashboard, Settings) after implementing changes.
+
+Ensure smooth navigation and data flow between modules without page reloads.
