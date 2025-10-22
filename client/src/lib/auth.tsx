@@ -21,25 +21,24 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("user");
-
-    if (savedToken && savedUser && savedUser !== "undefined") {
-      try {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
-      } catch (error) {
-        console.error("Failed to parse saved user data:", error);
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+  // Initialize state from localStorage immediately to prevent flicker
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    try {
+      const savedUser = localStorage.getItem("user");
+      if (savedUser && savedUser !== "undefined") {
+        return JSON.parse(savedUser);
       }
+    } catch (error) {
+      console.error("Failed to parse saved user data:", error);
     }
-  }, []);
+    return null;
+  });
+  
+  const [token, setToken] = useState<string | null>(() => {
+    return localStorage.getItem("token");
+  });
+  
+  const [, setLocation] = useLocation();
 
   const login = (authData: AuthResponse) => {
     setToken(authData.token);

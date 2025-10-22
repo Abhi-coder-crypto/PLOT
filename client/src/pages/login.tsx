@@ -19,11 +19,18 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { useEffect } from "react";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { login } = useAuth();
   const { toast } = useToast();
+
+  // Clear any old tokens when the login page loads
+  useEffect(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+  }, []);
 
   const form = useForm<LoginCredentials>({
     resolver: zodResolver(loginSchema),
