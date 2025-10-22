@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { motion } from "framer-motion";
+
 import { Building2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,21 +64,15 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+      <div
         className="w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+          <div
             className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent mb-4 shadow-lg"
           >
             <Building2 className="h-8 w-8 text-white" />
-          </motion.div>
+          </div>
           <h1 className="text-3xl font-bold text-foreground">Plot Management CRM</h1>
           <p className="text-muted-foreground mt-2">Sign in to manage your leads and plots</p>
         </div>
@@ -152,7 +146,7 @@ export default function Login() {
         <p className="text-center text-sm text-muted-foreground mt-6">
           Demo: admin@example.com / password123
         </p>
-      </motion.div>
+      </div>
     </div>
   );
 }

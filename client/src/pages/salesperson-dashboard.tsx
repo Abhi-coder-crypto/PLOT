@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+
 import { ClipboardList, Calendar, CheckCircle, DollarSign, AlertCircle } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,14 +40,11 @@ export default function SalespersonDashboard() {
 
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+      <div
       >
         <h1 className="text-3xl font-bold text-foreground">My Dashboard</h1>
         <p className="text-muted-foreground mt-1">Track your performance and today's tasks</p>
-      </motion.div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
@@ -104,10 +101,8 @@ export default function SalespersonDashboard() {
             ) : todayFollowUps && todayFollowUps.length > 0 ? (
               <div className="space-y-3">
                 {todayFollowUps.map((lead) => (
-                  <motion.div
+                  <div
                     key={lead._id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
                     className="flex items-start justify-between p-4 rounded-lg border border-border hover-elevate"
                     data-testid={`followup-${lead._id}`}
                   >
@@ -135,7 +130,7 @@ export default function SalespersonDashboard() {
                     >
                       View
                     </Button>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             ) : (

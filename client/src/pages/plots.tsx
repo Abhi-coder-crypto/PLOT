@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+
 import { Plus, Building2, DollarSign, Maximize, Compass, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -172,9 +172,7 @@ export default function Plots() {
 
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
+      <div
         className="flex flex-wrap items-center justify-between gap-4"
       >
         <div>
@@ -391,7 +389,7 @@ export default function Plots() {
             </>
           )}
         </div>
-      </motion.div>
+      </div>
 
       <Tabs defaultValue="grid" className="space-y-6">
         <TabsList>
@@ -447,11 +445,8 @@ export default function Plots() {
               ) : filteredPlots && filteredPlots.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                   {filteredPlots.map((plot, index) => (
-                    <motion.button
+                    <button
                       key={plot._id}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.02 }}
                       onClick={() => {
                         if (plot.status === "Available" || plot.status === "Hold") {
                           setSelectedPlot(plot);
@@ -466,7 +461,7 @@ export default function Plots() {
                       <div className="text-sm font-semibold">{plot.plotNumber}</div>
                       <div className="text-xs opacity-90 mt-1">{plot.size}</div>
                       <div className="text-xs font-medium mt-1">₹{(plot.price / 100000).toFixed(1)}L</div>
-                    </motion.button>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -488,11 +483,8 @@ export default function Plots() {
           ) : projects && projects.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {projects.map((project, index) => (
-                <motion.div
+                <div
                   key={project._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
                 >
                   <Card className="hover-elevate" data-testid={`card-project-${project._id}`}>
                     <CardHeader>
@@ -522,7 +514,7 @@ export default function Plots() {
                       </div>
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
               ))}
             </div>
           ) : (

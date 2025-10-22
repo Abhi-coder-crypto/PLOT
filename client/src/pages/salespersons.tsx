@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+
 import { Plus, Search, Edit, Trash2, Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,9 +85,7 @@ export default function Salespersons() {
 
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
+      <div
         className="flex flex-wrap items-center justify-between gap-4"
       >
         <div>
@@ -177,7 +175,7 @@ export default function Salespersons() {
             </Form>
           </DialogContent>
         </Dialog>
-      </motion.div>
+      </div>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -197,11 +195,8 @@ export default function Salespersons() {
       ) : filteredSalespersons && filteredSalespersons.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredSalespersons.map((salesperson, index) => (
-            <motion.div
+            <div
               key={salesperson._id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
             >
               <Card className="hover-elevate" data-testid={`card-salesperson-${salesperson._id}`}>
                 <CardHeader className="pb-3">
@@ -239,7 +234,7 @@ export default function Salespersons() {
                   )}
                 </CardContent>
               </Card>
-            </motion.div>
+            </div>
           ))}
         </div>
       ) : (

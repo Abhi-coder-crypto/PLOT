@@ -55,8 +55,8 @@ const leadSchema = new Schema<ILead>(
     },
     rating: {
       type: String,
-      enum: ["Hot", "Warm", "Cold"],
-      default: "Warm",
+      enum: ["Urgent", "Intermediate", "Low"],
+      default: "Intermediate",
     },
     assignedTo: { type: Schema.Types.ObjectId, ref: "User" },
     assignedBy: { type: Schema.Types.ObjectId, ref: "User" },

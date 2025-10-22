@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { Plus, Search, Filter, Edit, Trash2, UserPlus, Calendar } from "lucide-react";
+import { Plus, Search, Filter, Edit, Trash2, UserPlus, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +51,8 @@ export default function Leads() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [ratingFilter, setRatingFilter] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const { toast } = useToast();
@@ -74,7 +75,20 @@ export default function Leads() {
       phone: "",
       source: "Website",
       status: "New",
-      rating: "Warm",
+      rating: "Intermediate",
+      notes: "",
+    },
+  });
+
+  const editForm = useForm<InsertLead>({
+    resolver: zodResolver(insertLeadSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      source: "Website",
+      status: "New",
+      rating: "Intermediate",
       notes: "",
     },
   });
@@ -86,6 +100,20 @@ export default function Leads() {
       toast({ title: "Lead created successfully" });
       setIsAddDialogOpen(false);
       form.reset();
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: InsertLead }) =>
+      apiRequest("PATCH", `/api/leads/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ title: "Lead updated successfully" });
+      setIsEditDialogOpen(false);
+      setSelectedLead(null);
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -129,9 +157,9 @@ export default function Leads() {
 
   const getRatingColor = (rating: string) => {
     switch (rating) {
-      case "Hot": return "bg-chart-3 text-white";
-      case "Warm": return "bg-chart-4 text-foreground";
-      case "Cold": return "bg-destructive text-white";
+      case "Urgent": return "bg-chart-3 text-white";
+      case "Intermediate": return "bg-chart-4 text-foreground";
+      case "Low": return "bg-chart-1 text-foreground";
       default: return "bg-secondary";
     }
   };
@@ -149,13 +177,35 @@ export default function Leads() {
     createMutation.mutate(data);
   };
 
+  const handleEdit = (lead: Lead) => {
+    setSelectedLead(lead);
+    editForm.reset({
+      name: lead.name,
+      email: lead.email || "",
+      phone: lead.phone,
+      source: lead.source,
+      status: lead.status,
+      rating: lead.rating,
+      followUpDate: lead.followUpDate ? new Date(lead.followUpDate).toISOString().slice(0, 16) : "",
+      notes: lead.notes || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleView = (lead: Lead) => {
+    setSelectedLead(lead);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleUpdate = (data: InsertLead) => {
+    if (selectedLead) {
+      updateMutation.mutate({ id: selectedLead._id, data });
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-wrap items-center justify-between gap-4"
-      >
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Leads Management</h1>
           <p className="text-muted-foreground mt-1">Track and manage all your leads</p>
@@ -336,7 +386,7 @@ export default function Leads() {
             </Form>
           </DialogContent>
         </Dialog>
-      </motion.div>
+      </div>
 
       <div className="flex flex-wrap gap-4">
         <div className="flex-1 min-w-[200px]">
@@ -399,12 +449,9 @@ export default function Leads() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredLeads.map((lead, index) => (
-                <motion.tr
+              {filteredLeads.map((lead) => (
+                <TableRow
                   key={lead._id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: index * 0.05 }}
                   className="hover-elevate"
                   data-testid={`row-lead-${lead._id}`}
                 >
@@ -459,6 +506,22 @@ export default function Leads() {
                     <div className="flex justify-end gap-2">
                       <Button
                         size="sm"
+                        variant="outline"
+                        onClick={() => handleView(lead)}
+                        data-testid={`button-view-${lead._id}`}
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEdit(lead)}
+                        data-testid={`button-edit-${lead._id}`}
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
                         variant="destructive"
                         onClick={() => deleteMutation.mutate(lead._id)}
                         disabled={deleteMutation.isPending}
@@ -468,7 +531,7 @@ export default function Leads() {
                       </Button>
                     </div>
                   </TableCell>
-                </motion.tr>
+                </TableRow>
               ))}
             </TableBody>
           </Table>
@@ -480,6 +543,246 @@ export default function Leads() {
           </div>
         )}
       </div>
+
+      {/* View Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Lead Details</DialogTitle>
+            <DialogDescription>View complete information about this lead</DialogDescription>
+          </DialogHeader>
+          {selectedLead && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Name</Label>
+                  <p className="text-foreground font-medium">{selectedLead.name}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Phone</Label>
+                  <p className="text-foreground font-medium">{selectedLead.phone}</p>
+                </div>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Email</Label>
+                <p className="text-foreground font-medium">{selectedLead.email || "N/A"}</p>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Source</Label>
+                  <p className="text-foreground font-medium">{selectedLead.source}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <Badge className={getStatusColor(selectedLead.status)}>{selectedLead.status}</Badge>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Rating</Label>
+                  <Badge className={getRatingColor(selectedLead.rating)}>{selectedLead.rating}</Badge>
+                </div>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Follow-up Date</Label>
+                <p className="text-foreground font-medium">
+                  {selectedLead.followUpDate
+                    ? format(new Date(selectedLead.followUpDate), "PPP")
+                    : "Not scheduled"}
+                </p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Notes</Label>
+                <p className="text-foreground font-medium">{selectedLead.notes || "No notes"}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Created At</Label>
+                  <p className="text-foreground font-medium">
+                    {format(new Date(selectedLead.createdAt), "PPP")}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Updated At</Label>
+                  <p className="text-foreground font-medium">
+                    {format(new Date(selectedLead.updatedAt), "PPP")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Lead</DialogTitle>
+            <DialogDescription>Update lead information</DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleUpdate)} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="John Doe" {...field} data-testid="input-edit-lead-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone</FormLabel>
+                      <FormControl>
+                        <Input placeholder="9876543210" {...field} data-testid="input-edit-lead-phone" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={editForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email (Optional)</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="john@example.com" {...field} data-testid="input-edit-lead-email" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="source"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Source</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-lead-source">
+                            <SelectValue placeholder="Select source" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {leadSources.map((source) => (
+                            <SelectItem key={source} value={source}>
+                              {source}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-lead-status">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {leadStatuses.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="rating"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rating</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-lead-rating">
+                            <SelectValue placeholder="Select rating" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {leadRatings.map((rating) => (
+                            <SelectItem key={rating} value={rating}>
+                              {rating}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={editForm.control}
+                name="followUpDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Follow-up Date (Optional)</FormLabel>
+                    <FormControl>
+                      <Input type="datetime-local" {...field} data-testid="input-edit-lead-followup" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Add any additional notes..."
+                        {...field}
+                        data-testid="input-edit-lead-notes"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                  data-testid="button-cancel-edit-lead"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateMutation.isPending} data-testid="button-submit-edit-lead">
+                  {updateMutation.isPending ? "Updating..." : "Update Lead"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       {/* Assign Dialog */}
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
