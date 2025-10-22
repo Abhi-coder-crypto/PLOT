@@ -24,7 +24,7 @@ export default function SalespersonDashboard() {
   const getRatingColor = (rating: string) => {
     switch (rating) {
       case "Urgent": return "bg-chart-3 text-white";
-      case "Intermediate": return "bg-chart-4 text-foreground";
+      case "High": return "bg-chart-4 text-foreground";
       case "Low": return "bg-chart-1 text-foreground";
       default: return "bg-secondary";
     }

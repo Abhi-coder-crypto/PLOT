@@ -9,7 +9,7 @@ export const leadStatuses = ["New", "Contacted", "Interested", "Site Visit", "Bo
 export type LeadStatus = typeof leadStatuses[number];
 
 // Lead ratings
-export const leadRatings = ["Urgent", "Intermediate", "Low"] as const;
+export const leadRatings = ["Urgent", "High", "Low"] as const;
 export type LeadRating = typeof leadRatings[number];
 
 // Lead sources
@@ -79,7 +79,7 @@ export const insertLeadSchema = z.object({
   phone: z.string().min(10, "Phone number must be at least 10 digits"),
   source: z.enum(leadSources),
   status: z.enum(leadStatuses).default("New"),
-  rating: z.enum(leadRatings).default("Intermediate"),
+  rating: z.enum(leadRatings).default("High"),
   assignedTo: z.string().optional(),
   followUpDate: z.string().optional(),
   notes: z.string().optional(),

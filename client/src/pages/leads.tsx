@@ -75,7 +75,7 @@ export default function Leads() {
       phone: "",
       source: "Website",
       status: "New",
-      rating: "Intermediate",
+      rating: "High",
       notes: "",
     },
   });
@@ -88,7 +88,7 @@ export default function Leads() {
       phone: "",
       source: "Website",
       status: "New",
-      rating: "Intermediate",
+      rating: "High",
       notes: "",
     },
   });
@@ -158,7 +158,7 @@ export default function Leads() {
   const getRatingColor = (rating: string) => {
     switch (rating) {
       case "Urgent": return "bg-chart-3 text-white";
-      case "Intermediate": return "bg-chart-4 text-foreground";
+      case "High": return "bg-chart-4 text-foreground";
       case "Low": return "bg-chart-1 text-foreground";
       default: return "bg-secondary";
     }

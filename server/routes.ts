@@ -43,7 +43,7 @@ export function registerRoutes(app: Express) {
       }
 
       const token = generateToken({
-        _id: user._id.toString(),
+        _id: String(user._id),
         email: user.email,
         role: user.role,
       });
@@ -51,7 +51,7 @@ export function registerRoutes(app: Express) {
       const response: AuthResponse = {
         token,
         user: {
-          _id: user._id.toString(),
+          _id: String(user._id),
           name: user.name,
           email: user.email,
           role: user.role,
@@ -246,6 +246,40 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.patch("/api/leads/:id", authenticateToken, async (req, res) => {
+    try {
+      const validationResult = insertLeadSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: "Invalid request data" });
+      }
+
+      const lead = await LeadModel.findByIdAndUpdate(
+        req.params.id,
+        validationResult.data,
+        { new: true }
+      );
+
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      const authReq = req as AuthRequest;
+      await ActivityLogModel.create({
+        userId: authReq.user!._id,
+        userName: authReq.user!.email,
+        action: "Updated Lead",
+        entityType: "lead",
+        entityId: lead._id,
+        details: `Updated lead ${lead.name}`,
+      });
+
+      res.json(lead);
+    } catch (error: any) {
+      console.error("Update lead error:", error);
+      res.status(500).json({ message: "Failed to update lead" });
+    }
+  });
+
   app.delete("/api/leads/:id", authenticateToken, async (req, res) => {
     try {
       await LeadModel.findByIdAndDelete(req.params.id);
@@ -259,7 +293,23 @@ export function registerRoutes(app: Express) {
   // ============= Project Routes =============
   app.get("/api/projects", authenticateToken, async (req, res) => {
     try {
-      const projects = await ProjectModel.find().sort({ createdAt: -1 });
+      const authReq = req as AuthRequest;
+      
+      if (authReq.user!.role === "admin") {
+        const projects = await ProjectModel.find().sort({ createdAt: -1 });
+        return res.json(projects);
+      }
+      
+      const assignedLeads = await LeadModel.find({ assignedTo: authReq.user!._id });
+      const leadIds = assignedLeads.map(lead => String(lead._id));
+      
+      const assignedPayments = await PaymentModel.find({ leadId: { $in: leadIds } });
+      const plotIds = assignedPayments.map(payment => payment.plotId);
+      
+      const assignedPlots = await PlotModel.find({ _id: { $in: plotIds } });
+      const projectIds = Array.from(new Set(assignedPlots.map(plot => plot.projectId)));
+      
+      const projects = await ProjectModel.find({ _id: { $in: projectIds } }).sort({ createdAt: -1 });
       res.json(projects);
     } catch (error: any) {
       console.error("Get projects error:", error);
@@ -297,7 +347,20 @@ export function registerRoutes(app: Express) {
   // ============= Plot Routes =============
   app.get("/api/plots", authenticateToken, async (req, res) => {
     try {
-      const plots = await PlotModel.find().sort({ plotNumber: 1 });
+      const authReq = req as AuthRequest;
+      
+      if (authReq.user!.role === "admin") {
+        const plots = await PlotModel.find().sort({ plotNumber: 1 });
+        return res.json(plots);
+      }
+      
+      const assignedLeads = await LeadModel.find({ assignedTo: authReq.user!._id });
+      const leadIds = assignedLeads.map(lead => String(lead._id));
+      
+      const assignedPayments = await PaymentModel.find({ leadId: { $in: leadIds } });
+      const plotIds = assignedPayments.map(payment => payment.plotId);
+      
+      const plots = await PlotModel.find({ _id: { $in: plotIds } }).sort({ plotNumber: 1 });
       res.json(plots);
     } catch (error: any) {
       console.error("Get plots error:", error);
