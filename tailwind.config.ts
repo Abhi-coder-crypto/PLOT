@@ -9,6 +9,10 @@ export default {
         lg: ".5625rem", /* 9px */
         md: ".375rem", /* 6px */
         sm: ".1875rem", /* 3px */
+        xl: "0.75rem", /* 12px for cards */
+      },
+      backdropBlur: {
+        xs: '2px',
       },
       colors: {
         // Flat / base colors (regular buttons)

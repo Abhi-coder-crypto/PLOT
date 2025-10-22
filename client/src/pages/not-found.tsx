@@ -1,21 +1,41 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { useLocation } from "wouter";
+import { motion } from "framer-motion";
+import { Home, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function NotFound() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
-          </div>
+  const [, setLocation] = useLocation();
 
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="text-center space-y-6"
+      >
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+          className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-destructive/10"
+        >
+          <AlertCircle className="h-12 w-12 text-destructive" />
+        </motion.div>
+        
+        <div>
+          <h1 className="text-6xl font-bold text-foreground mb-2">404</h1>
+          <h2 className="text-2xl font-semibold text-foreground mb-2">Page Not Found</h2>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            The page you're looking for doesn't exist or has been moved.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+
+        <Button onClick={() => setLocation("/dashboard")} data-testid="button-go-home">
+          <Home className="h-4 w-4 mr-2" />
+          Go to Dashboard
+        </Button>
+      </motion.div>
     </div>
   );
 }
