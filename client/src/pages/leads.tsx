@@ -669,7 +669,7 @@ export default function Leads() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Source</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-edit-lead-source">
                             <SelectValue placeholder="Select source" />
@@ -693,7 +693,7 @@ export default function Leads() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-edit-lead-status">
                             <SelectValue placeholder="Select status" />
@@ -717,7 +717,7 @@ export default function Leads() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Rating</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-edit-lead-rating">
                             <SelectValue placeholder="Select rating" />

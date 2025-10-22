@@ -6,6 +6,7 @@ This is a full-featured Plot Management CRM web application designed for real es
 
 ## Recent Changes (October 2025)
 
+- **Edit Button Select Fields Fixed** (Oct 22, 2025): Fixed edit dialog Select components to properly update when editing different leads by changing from `defaultValue` to `value`
 - **MongoDB Migration Complete** (Oct 22, 2025): Successfully migrated project to Replit environment with MongoDB connection via secure environment variables
 - **Rating Categories Updated** (Oct 22, 2025): Lead ratings changed from "Urgent/Intermediate/Low" to "Urgent/High/Low" throughout the entire application (schema, UI components, and database operations)
 - **Lead Edit Function Fixed** (Oct 22, 2025): Implemented missing PATCH /api/leads/:id route with proper validation, MongoDB updates, and activity logging
