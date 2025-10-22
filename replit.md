@@ -6,15 +6,18 @@ This is a full-featured Plot Management CRM web application designed for real es
 
 ## Recent Changes (October 2025)
 
-- **Edit Button Select Fields Fixed** (Oct 22, 2025): Fixed edit dialog Select components to properly update when editing different leads by changing from `defaultValue` to `value`
+- **Category-Based Plot Management System** (Oct 22, 2025): Complete overhaul of plot management with category-based filtering (Investment Plot, Bungalow Plot, Residential Plot, Commercial Plot, Open Plot)
+- **Buyer Interest Tracking** (Oct 22, 2025): New buyer interest tracking system allowing salespersons to record potential buyers, offered prices, and negotiations for each plot
+- **Plot Statistics Dashboard** (Oct 22, 2025): Real-time statistics showing total interested buyers, average offered price, and highest offer for each plot
+- **Modern UI with Animations** (Oct 22, 2025): Enhanced plots page with framer-motion animations, gradients, hover effects, and color-coded status cards
+- **Advanced Search & Filters** (Oct 22, 2025): Implemented real-time search by plot ID or location with status-based filtering
+- **Plot Details Modal** (Oct 22, 2025): Comprehensive modal showing plot information, amenities, location, and complete buyer interest history
+- **Edit Button Select Fields Fixed** (Oct 22, 2025): Fixed edit dialog Select components to properly update when editing different leads
 - **MongoDB Migration Complete** (Oct 22, 2025): Successfully migrated project to Replit environment with MongoDB connection via secure environment variables
-- **Rating Categories Updated** (Oct 22, 2025): Lead ratings changed from "Urgent/Intermediate/Low" to "Urgent/High/Low" throughout the entire application (schema, UI components, and database operations)
-- **Lead Edit Function Fixed** (Oct 22, 2025): Implemented missing PATCH /api/leads/:id route with proper validation, MongoDB updates, and activity logging
-- **Navigation Enhanced** (Oct 22, 2025): Replaced standard anchor tags with wouter's Link component to eliminate page reloads and enable instant client-side navigation
-- **Salesperson Filtering Added** (Oct 22, 2025): Projects and plots are now filtered for salespersons to show only items related to their assigned leads and payments
-- **Removed Page Animations**: All fade and transition animations removed from page/module switching for instant navigation
-- **Enhanced Lead Management**: Full CRUD functionality with View and Edit buttons
-- **Secure MongoDB Connection**: MongoDB URI stored securely in Replit Secrets
+- **Rating Categories Updated** (Oct 22, 2025): Lead ratings changed from "Urgent/Intermediate/Low" to "Urgent/High/Low"
+- **Lead Edit Function Fixed** (Oct 22, 2025): Implemented missing PATCH /api/leads/:id route with proper validation
+- **Navigation Enhanced** (Oct 22, 2025): Replaced standard anchor tags with wouter's Link component for instant client-side navigation
+- **Salesperson Filtering Added** (Oct 22, 2025): Projects and plots filtered for salespersons to show only items related to their assigned leads
 
 ## User Preferences
 
@@ -75,9 +78,10 @@ Preferred communication style: Simple, everyday language.
 **Data Models**
 The application uses the following core data models:
 - **User**: Admin and salesperson accounts with authentication credentials
-- **Lead**: Customer leads with contact info, status, rating (Urgent/Intermediate/Low), source, and assignment to salesperson
+- **Lead**: Customer leads with contact info, status, rating (Urgent/High/Low), source, and assignment to salesperson
 - **Project**: Real estate projects containing multiple plots
-- **Plot**: Individual plots with size, price, facing direction, and status (Available/Booked/Hold/Sold)
+- **Plot**: Individual plots with size, price, facing direction, status (Available/Booked/Hold/Sold), and category (Investment/Bungalow/Residential/Commercial/Open)
+- **BuyerInterest**: Tracks interested buyers for each plot including buyer details, offered price, assigned salesperson, and inquiry date
 - **Payment**: Booking payments with amount, mode (Cash/UPI/Cheque/Bank Transfer), and type (Token/Full)
 - **ActivityLog**: Audit trail of user actions across the system
 
