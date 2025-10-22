@@ -43,14 +43,8 @@ export default function Login() {
         description: "You have successfully logged in.",
       });
       
-      // Redirect based on user role
-      setTimeout(() => {
-        if (response.user.role === "admin") {
-          setLocation("/");
-        } else {
-          setLocation("/");
-        }
-      }, 100);
+      // Use window.location for reliable redirect
+      window.location.href = "/";
     } catch (error: any) {
       toast({
         title: "Login failed",
