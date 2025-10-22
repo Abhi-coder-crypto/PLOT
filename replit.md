@@ -6,10 +6,14 @@ This is a full-featured Plot Management CRM web application designed for real es
 
 ## Recent Changes (October 2025)
 
-- **Removed Page Animations**: All fade and transition animations have been removed from page/module switching for instant navigation
-- **Updated Rating Categories**: Lead ratings changed from "Hot/Warm/Cold" to "Urgent/Intermediate/Low" throughout the application
-- **Enhanced Lead Management**: Added View and Edit buttons to Lead Management module with full CRUD functionality
-- **Secure MongoDB Connection**: MongoDB URI now stored securely in Replit Secrets instead of hardcoded values
+- **MongoDB Migration Complete** (Oct 22, 2025): Successfully migrated project to Replit environment with MongoDB connection via secure environment variables
+- **Rating Categories Updated** (Oct 22, 2025): Lead ratings changed from "Urgent/Intermediate/Low" to "Urgent/High/Low" throughout the entire application (schema, UI components, and database operations)
+- **Lead Edit Function Fixed** (Oct 22, 2025): Implemented missing PATCH /api/leads/:id route with proper validation, MongoDB updates, and activity logging
+- **Navigation Enhanced** (Oct 22, 2025): Replaced standard anchor tags with wouter's Link component to eliminate page reloads and enable instant client-side navigation
+- **Salesperson Filtering Added** (Oct 22, 2025): Projects and plots are now filtered for salespersons to show only items related to their assigned leads and payments
+- **Removed Page Animations**: All fade and transition animations removed from page/module switching for instant navigation
+- **Enhanced Lead Management**: Full CRUD functionality with View and Edit buttons
+- **Secure MongoDB Connection**: MongoDB URI stored securely in Replit Secrets
 
 ## User Preferences
 
