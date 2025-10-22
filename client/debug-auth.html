@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Auth</title>
+</head>
+<body>
+    <h1>Authentication Debug</h1>
+    <button onclick="checkAuth()">Check Auth State</button>
+    <button onclick="clearAuth()">Clear Auth</button>
+    <pre id="output"></pre>
+    
+    <script>
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            const output = document.getElementById('output');
+            output.textContent = JSON.stringify({
+                token: token ? token.substring(0, 50) + '...' : null,
+                user: user ? JSON.parse(user) : null
+            }, null, 2);
+        }
+        
+        function clearAuth() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            alert('Cleared! Reload the page and login again.');
+        }
+        
+        checkAuth();
+    </script>
+</body>
+</html>

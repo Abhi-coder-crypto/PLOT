@@ -42,9 +42,10 @@ export default function Login() {
 
   const handleSubmit = async (data: LoginCredentials) => {
     try {
-      const response = await apiRequest<AuthResponse>("POST", "/api/auth/login", data);
+      const response = await apiRequest("POST", "/api/auth/login", data);
+      const authData: AuthResponse = await response.json();
 
-      login(response);
+      login(authData);
       toast({
         title: "Welcome back!",
         description: "You have successfully logged in.",
