@@ -346,6 +346,101 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Get projects with plot and buyer interest overview
+  app.get("/api/projects/overview", authenticateToken, async (req, res) => {
+    try {
+      const projects = await ProjectModel.find().sort({ createdAt: -1 });
+      
+      const projectsOverview = await Promise.all(
+        projects.map(async (project) => {
+          const projectId = String(project._id);
+          
+          // Get all plots for this project
+          const plots = await PlotModel.find({ projectId }).sort({ plotNumber: 1 });
+          
+          // Get buyer interests for all plots in this project
+          const plotIds = plots.map(p => String(p._id));
+          const buyerInterests = await BuyerInterestModel.find({ 
+            plotId: { $in: plotIds } 
+          }).populate("salespersonId", "name email");
+          
+          // Calculate project-level stats
+          const availablePlots = plots.filter(p => p.status === "Available").length;
+          const bookedPlots = plots.filter(p => p.status === "Booked").length;
+          const soldPlots = plots.filter(p => p.status === "Sold").length;
+          const totalInterestedBuyers = buyerInterests.length;
+          
+          // Enrich plots with buyer interest data
+          const enrichedPlots = plots.map(plot => {
+            const plotId = String(plot._id);
+            const plotInterests = buyerInterests.filter(bi => String(bi.plotId) === plotId);
+            
+            const interestCount = plotInterests.length;
+            const highestOffer = plotInterests.length > 0 
+              ? Math.max(...plotInterests.map(bi => bi.offeredPrice)) 
+              : 0;
+            
+            // Get unique salespersons for this plot using Map for proper deduplication
+            const salespersonsMap = new Map();
+            plotInterests.forEach(bi => {
+              const salespersonDoc = bi.salespersonId as any;
+              const salespersonId = salespersonDoc?._id ? String(salespersonDoc._id) : String(bi.salespersonId);
+              const salespersonName = salespersonDoc?.name || bi.salespersonName;
+              
+              if (!salespersonsMap.has(salespersonId)) {
+                salespersonsMap.set(salespersonId, {
+                  id: salespersonId,
+                  name: salespersonName,
+                });
+              }
+            });
+            const salespersons = Array.from(salespersonsMap.values());
+            
+            return {
+              ...plot.toObject(),
+              buyerInterestCount: interestCount,
+              highestOffer,
+              salespersons,
+              buyerInterests: plotInterests.map(bi => {
+                const salespersonDoc = bi.salespersonId as any;
+                const salespersonId = salespersonDoc?._id ? String(salespersonDoc._id) : String(bi.salespersonId);
+                const salespersonName = salespersonDoc?.name || bi.salespersonName;
+                
+                return {
+                  _id: String(bi._id),
+                  buyerName: bi.buyerName,
+                  buyerContact: bi.buyerContact,
+                  buyerEmail: bi.buyerEmail,
+                  offeredPrice: bi.offeredPrice,
+                  salespersonId,
+                  salespersonName,
+                  notes: bi.notes,
+                  createdAt: bi.createdAt,
+                  updatedAt: bi.updatedAt,
+                };
+              }),
+            };
+          });
+          
+          return {
+            ...project.toObject(),
+            totalPlots: plots.length,
+            availablePlots,
+            bookedPlots,
+            soldPlots,
+            totalInterestedBuyers,
+            plots: enrichedPlots,
+          };
+        })
+      );
+      
+      res.json(projectsOverview);
+    } catch (error: any) {
+      console.error("Get projects overview error:", error);
+      res.status(500).json({ message: "Failed to fetch projects overview" });
+    }
+  });
+
   // ============= Plot Routes =============
   app.get("/api/plots", authenticateToken, async (req, res) => {
     try {

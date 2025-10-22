@@ -1,11 +1,18 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Building2, Search, Filter, X, User, Phone, Mail, DollarSign, TrendingUp, Users } from "lucide-react";
+import { Plus, Building2, Search, ChevronDown, ChevronRight, Users, TrendingUp, Phone, Mail, User, DollarSign, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -22,10 +29,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Plot, Project, InsertPlot, InsertProject, PlotCategory, InsertBuyerInterest, User as UserType } from "@shared/schema";
+import type { Project, InsertPlot, InsertProject, InsertBuyerInterest, User as UserType } from "@shared/schema";
 import { plotStatuses, plotCategories } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,10 +47,29 @@ import {
 import { useAuth } from "@/lib/auth";
 import { Separator } from "@/components/ui/separator";
 
-interface PlotStats {
+interface ProjectOverview extends Project {
+  totalPlots: number;
+  availablePlots: number;
+  bookedPlots: number;
+  soldPlots: number;
   totalInterestedBuyers: number;
-  averageOfferedPrice: number;
+  plots: PlotWithInterests[];
+}
+
+interface PlotWithInterests {
+  _id: string;
+  projectId: string;
+  plotNumber: string;
+  size: string;
+  price: number;
+  facing?: string;
+  status: string;
+  category: string;
+  amenities?: string;
+  bookedBy?: string;
+  buyerInterestCount: number;
   highestOffer: number;
+  salespersons: Array<{ id: string; name: string }>;
   buyerInterests: Array<{
     _id: string;
     buyerName: string;
@@ -55,32 +80,24 @@ interface PlotStats {
     salespersonName: string;
     notes?: string;
     createdAt: string;
+    updatedAt: string;
   }>;
 }
 
 export default function Plots() {
-  const [selectedCategory, setSelectedCategory] = useState<PlotCategory | "all">("all");
   const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
   const [isAddPlotOpen, setIsAddPlotOpen] = useState(false);
-  const [isPlotDetailsOpen, setIsPlotDetailsOpen] = useState(false);
   const [isAddInterestOpen, setIsAddInterestOpen] = useState(false);
-  const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null);
+  const [selectedPlot, setSelectedPlot] = useState<PlotWithInterests | null>(null);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [expandedPlots, setExpandedPlots] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const { toast } = useToast();
   const { isAdmin } = useAuth();
 
-  const { data: projects } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
-  });
-
-  const { data: plots, isLoading: plotsLoading } = useQuery<Plot[]>({
-    queryKey: ["/api/plots"],
-  });
-
-  const { data: plotStats } = useQuery<PlotStats>({
-    queryKey: [`/api/plots/${selectedPlot?._id}/stats`],
-    enabled: !!selectedPlot,
+  const { data: projectsOverview, isLoading } = useQuery<ProjectOverview[]>({
+    queryKey: ["/api/projects/overview"],
   });
 
   const { data: salespersons } = useQuery<UserType[]>({
@@ -127,7 +144,7 @@ export default function Plots() {
   const createProjectMutation = useMutation({
     mutationFn: (data: InsertProject) => apiRequest("POST", "/api/projects", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects/overview"] });
       toast({ title: "Project created successfully" });
       setIsAddProjectOpen(false);
       projectForm.reset();
@@ -140,7 +157,7 @@ export default function Plots() {
   const createPlotMutation = useMutation({
     mutationFn: (data: InsertPlot) => apiRequest("POST", "/api/plots", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects/overview"] });
       toast({ title: "Plot created successfully" });
       setIsAddPlotOpen(false);
       plotForm.reset();
@@ -153,7 +170,7 @@ export default function Plots() {
   const createBuyerInterestMutation = useMutation({
     mutationFn: (data: InsertBuyerInterest) => apiRequest("POST", "/api/buyer-interests", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/plots/${selectedPlot?._id}/stats`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects/overview"] });
       toast({ title: "Buyer interest added successfully" });
       setIsAddInterestOpen(false);
       buyerInterestForm.reset();
@@ -180,63 +197,58 @@ export default function Plots() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Available":
-        return "bg-green-500/10 border-green-500 text-green-700 dark:text-green-400";
-      case "Booked":
-        return "bg-yellow-500/10 border-yellow-500 text-yellow-700 dark:text-yellow-400";
-      case "Hold":
-        return "bg-orange-500/10 border-orange-500 text-orange-700 dark:text-orange-400";
-      case "Sold":
-        return "bg-red-500/10 border-red-500 text-red-700 dark:text-red-400";
-      default:
-        return "bg-gray-500/10 border-gray-500 text-gray-700 dark:text-gray-400";
+  const toggleProject = (projectId: string) => {
+    const newExpanded = new Set(expandedProjects);
+    if (newExpanded.has(projectId)) {
+      newExpanded.delete(projectId);
+    } else {
+      newExpanded.add(projectId);
     }
+    setExpandedProjects(newExpanded);
+  };
+
+  const togglePlot = (plotId: string) => {
+    const newExpanded = new Set(expandedPlots);
+    if (newExpanded.has(plotId)) {
+      newExpanded.delete(plotId);
+    } else {
+      newExpanded.add(plotId);
+    }
+    setExpandedPlots(newExpanded);
   };
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case "Available":
-        return "bg-green-500 hover:bg-green-600";
+        return "bg-green-500 hover:bg-green-600 text-white";
       case "Booked":
-        return "bg-yellow-500 hover:bg-yellow-600";
+        return "bg-yellow-500 hover:bg-yellow-600 text-white";
       case "Hold":
-        return "bg-orange-500 hover:bg-orange-600";
+        return "bg-orange-500 hover:bg-orange-600 text-white";
       case "Sold":
-        return "bg-red-500 hover:bg-red-600";
+        return "bg-red-500 hover:bg-red-600 text-white";
       default:
-        return "bg-gray-500 hover:bg-gray-600";
+        return "bg-gray-500 hover:bg-gray-600 text-white";
     }
-  };
-
-  const getProjectName = (projectId: string) => {
-    return projects?.find((p) => p._id === projectId)?.name || "Unknown Project";
-  };
-
-  const getProjectLocation = (projectId: string) => {
-    return projects?.find((p) => p._id === projectId)?.location || "";
-  };
-
-  // Filter plots by category, status, and search
-  const filteredPlots = plots?.filter((plot) => {
-    const matchesCategory = selectedCategory === "all" || plot.category === selectedCategory;
-    const matchesStatus = statusFilter === "all" || plot.status === statusFilter;
-    const matchesSearch =
-      searchQuery === "" ||
-      plot.plotNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      getProjectLocation(plot.projectId).toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesStatus && matchesSearch;
-  });
-
-  const handlePlotClick = (plot: Plot) => {
-    setSelectedPlot(plot);
-    setIsPlotDetailsOpen(true);
   };
 
   const formatCurrency = (amount: number) => {
     return `₹${(amount / 100000).toFixed(2)}L`;
   };
+
+  // Filter projects and plots
+  const filteredProjects = projectsOverview?.map(project => ({
+    ...project,
+    plots: project.plots.filter(plot => {
+      const matchesStatus = statusFilter === "all" || plot.status === statusFilter;
+      const matchesSearch =
+        searchQuery === "" ||
+        plot.plotNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.location.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesStatus && matchesSearch;
+    })
+  })).filter(project => project.plots.length > 0 || searchQuery === "");
 
   return (
     <div className="space-y-6 p-6">
@@ -244,10 +256,10 @@ export default function Plots() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Plot Management
+            Projects & Plots Management
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage plots by category with advanced buyer tracking
+            Track projects, plots, and buyer interests in one place
           </p>
         </div>
         <div className="flex gap-2">
@@ -255,7 +267,7 @@ export default function Plots() {
             <>
               <Dialog open={isAddProjectOpen} onOpenChange={setIsAddProjectOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="shadow-sm">
+                  <Button variant="outline" className="shadow-sm" data-testid="button-add-project">
                     <Building2 className="h-4 w-4 mr-2" />
                     Add Project
                   </Button>
@@ -274,7 +286,7 @@ export default function Plots() {
                           <FormItem>
                             <FormLabel>Project Name</FormLabel>
                             <FormControl>
-                              <Input placeholder="Green Valley Plots" {...field} />
+                              <Input placeholder="Green Valley Plots" {...field} data-testid="input-project-name" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -287,7 +299,7 @@ export default function Plots() {
                           <FormItem>
                             <FormLabel>Location</FormLabel>
                             <FormControl>
-                              <Input placeholder="Bangalore, Karnataka" {...field} />
+                              <Input placeholder="Bangalore, Karnataka" {...field} data-testid="input-project-location" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -304,6 +316,7 @@ export default function Plots() {
                                 type="number"
                                 {...field}
                                 onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                data-testid="input-project-total-plots"
                               />
                             </FormControl>
                             <FormMessage />
@@ -317,17 +330,17 @@ export default function Plots() {
                           <FormItem>
                             <FormLabel>Description (Optional)</FormLabel>
                             <FormControl>
-                              <Input placeholder="Premium plots with all amenities" {...field} />
+                              <Input placeholder="Premium plots with all amenities" {...field} data-testid="input-project-description" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                       <div className="flex justify-end gap-2">
-                        <Button type="button" variant="outline" onClick={() => setIsAddProjectOpen(false)}>
+                        <Button type="button" variant="outline" onClick={() => setIsAddProjectOpen(false)} data-testid="button-cancel-project">
                           Cancel
                         </Button>
-                        <Button type="submit" disabled={createProjectMutation.isPending}>
+                        <Button type="submit" disabled={createProjectMutation.isPending} data-testid="button-submit-project">
                           {createProjectMutation.isPending ? "Creating..." : "Create"}
                         </Button>
                       </div>
@@ -337,7 +350,7 @@ export default function Plots() {
               </Dialog>
               <Dialog open={isAddPlotOpen} onOpenChange={setIsAddPlotOpen}>
                 <DialogTrigger asChild>
-                  <Button className="shadow-sm">
+                  <Button className="shadow-sm" data-testid="button-add-plot">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Plot
                   </Button>
@@ -345,7 +358,7 @@ export default function Plots() {
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>Add New Plot</DialogTitle>
-                    <DialogDescription>Add a plot with category and details</DialogDescription>
+                    <DialogDescription>Add a plot to a project</DialogDescription>
                   </DialogHeader>
                   <Form {...plotForm}>
                     <form onSubmit={plotForm.handleSubmit(handlePlotSubmit)} className="space-y-4">
@@ -358,12 +371,12 @@ export default function Plots() {
                               <FormLabel>Project</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
-                                  <SelectTrigger>
+                                  <SelectTrigger data-testid="select-plot-project">
                                     <SelectValue placeholder="Select project" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {projects?.map((project) => (
+                                  {projectsOverview?.map((project) => (
                                     <SelectItem key={project._id} value={project._id}>
                                       {project.name}
                                     </SelectItem>
@@ -382,7 +395,7 @@ export default function Plots() {
                               <FormLabel>Category</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
-                                  <SelectTrigger>
+                                  <SelectTrigger data-testid="select-plot-category">
                                     <SelectValue placeholder="Select category" />
                                   </SelectTrigger>
                                 </FormControl>
@@ -407,7 +420,7 @@ export default function Plots() {
                             <FormItem>
                               <FormLabel>Plot Number</FormLabel>
                               <FormControl>
-                                <Input placeholder="A-101" {...field} />
+                                <Input placeholder="A-101" {...field} data-testid="input-plot-number" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -420,7 +433,7 @@ export default function Plots() {
                             <FormItem>
                               <FormLabel>Size</FormLabel>
                               <FormControl>
-                                <Input placeholder="1200 sq.ft" {...field} />
+                                <Input placeholder="1200 sq.ft" {...field} data-testid="input-plot-size" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -439,6 +452,7 @@ export default function Plots() {
                                   type="number"
                                   {...field}
                                   onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                  data-testid="input-plot-price"
                                 />
                               </FormControl>
                               <FormMessage />
@@ -452,7 +466,7 @@ export default function Plots() {
                             <FormItem>
                               <FormLabel>Facing (Optional)</FormLabel>
                               <FormControl>
-                                <Input placeholder="East" {...field} />
+                                <Input placeholder="East" {...field} data-testid="input-plot-facing" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -466,7 +480,7 @@ export default function Plots() {
                           <FormItem>
                             <FormLabel>Amenities (Optional)</FormLabel>
                             <FormControl>
-                              <Input placeholder="Water supply, Electricity, Road access" {...field} />
+                              <Input placeholder="Water supply, Electricity, Road access" {...field} data-testid="input-plot-amenities" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -480,7 +494,7 @@ export default function Plots() {
                             <FormLabel>Status</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
-                                <SelectTrigger>
+                                <SelectTrigger data-testid="select-plot-status">
                                   <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
                               </FormControl>
@@ -497,10 +511,10 @@ export default function Plots() {
                         )}
                       />
                       <div className="flex justify-end gap-2">
-                        <Button type="button" variant="outline" onClick={() => setIsAddPlotOpen(false)}>
+                        <Button type="button" variant="outline" onClick={() => setIsAddPlotOpen(false)} data-testid="button-cancel-plot">
                           Cancel
                         </Button>
-                        <Button type="submit" disabled={createPlotMutation.isPending}>
+                        <Button type="submit" disabled={createPlotMutation.isPending} data-testid="button-submit-plot">
                           {createPlotMutation.isPending ? "Creating..." : "Create"}
                         </Button>
                       </div>
@@ -513,32 +527,6 @@ export default function Plots() {
         </div>
       </div>
 
-      {/* Category Tabs */}
-      <Card className="shadow-lg border-2">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-3">
-            <Button
-              variant={selectedCategory === "all" ? "default" : "outline"}
-              onClick={() => setSelectedCategory("all")}
-              className="transition-all duration-200 hover:scale-105 shadow-sm"
-            >
-              All Plots
-            </Button>
-            {plotCategories.map((category) => (
-              <motion.div key={category} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  variant={selectedCategory === category ? "default" : "outline"}
-                  onClick={() => setSelectedCategory(category)}
-                  className="transition-all duration-200 shadow-sm"
-                >
-                  {category}
-                </Button>
-              </motion.div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Search and Filters */}
       <Card className="shadow-md">
         <CardContent className="pt-6">
@@ -547,16 +535,16 @@ export default function Plots() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by plot ID or location..."
+                  placeholder="Search by project, plot ID, or location..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
+                  data-testid="input-search"
                 />
               </div>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
+              <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -576,6 +564,7 @@ export default function Plots() {
                   setStatusFilter("all");
                 }}
                 className="text-muted-foreground"
+                data-testid="button-clear-filters"
               >
                 <X className="h-4 w-4 mr-2" />
                 Clear
@@ -585,392 +574,395 @@ export default function Plots() {
         </CardContent>
       </Card>
 
-      {/* Plot Grid */}
-      {plotsLoading ? (
+      {/* Projects Table */}
+      {isLoading ? (
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
-      ) : filteredPlots && filteredPlots.length > 0 ? (
-        <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <AnimatePresence mode="popLayout">
-            {filteredPlots.map((plot) => (
-              <motion.div
-                key={plot._id}
-                layout
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.2 }}
-                whileHover={{ y: -8, transition: { duration: 0.2 } }}
-              >
-                <Card
-                  className={`cursor-pointer transition-all duration-300 border-2 hover:shadow-xl ${getStatusColor(
-                    plot.status
-                  )}`}
-                  onClick={() => handlePlotClick(plot)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-xl font-bold">{plot.plotNumber}</CardTitle>
-                        <CardDescription className="text-xs mt-1">
-                          {getProjectName(plot.projectId)}
-                        </CardDescription>
-                      </div>
-                      <Badge className={`${getStatusBadgeColor(plot.status)} text-white`}>
-                        {plot.status}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Size</span>
-                      <span className="font-semibold">{plot.size}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Price</span>
-                      <span className="font-bold text-primary">{formatCurrency(plot.price)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Location</span>
-                      <span className="text-xs truncate max-w-[150px]">
-                        {getProjectLocation(plot.projectId)}
-                      </span>
-                    </div>
-                    <Badge variant="outline" className="w-full justify-center">
-                      {plot.category}
-                    </Badge>
-                    <Button variant="secondary" size="sm" className="w-full mt-2">
-                      View Details
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+      ) : filteredProjects && filteredProjects.length > 0 ? (
+        <Card className="shadow-md">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead>Project Name</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead className="text-center">Total Plots</TableHead>
+                  <TableHead className="text-center">Available</TableHead>
+                  <TableHead className="text-center">Booked</TableHead>
+                  <TableHead className="text-center">Sold</TableHead>
+                  <TableHead className="text-center">Interested Buyers</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProjects.map((project) => (
+                  <>
+                    <TableRow 
+                      key={project._id} 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => toggleProject(project._id)}
+                      data-testid={`row-project-${project._id}`}
+                    >
+                      <TableCell>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                          {expandedProjects.has(project._id) ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
+                      <TableCell className="font-semibold" data-testid={`text-project-name-${project._id}`}>
+                        {project.name}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{project.location}</TableCell>
+                      <TableCell className="text-center">{project.totalPlots}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge className="bg-green-500 text-white">{project.availablePlots}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge className="bg-yellow-500 text-white">{project.bookedPlots}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge className="bg-red-500 text-white">{project.soldPlots}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="gap-1">
+                          <Users className="h-3 w-3" />
+                          {project.totalInterestedBuyers}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Expanded Plots Table */}
+                    {expandedProjects.has(project._id) && project.plots.length > 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="p-0 bg-muted/20">
+                          <div className="p-4">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                  <TableHead className="w-[50px]"></TableHead>
+                                  <TableHead>Plot Number</TableHead>
+                                  <TableHead>Size</TableHead>
+                                  <TableHead>Price</TableHead>
+                                  <TableHead>Status</TableHead>
+                                  <TableHead className="text-center">Buyer Interest</TableHead>
+                                  <TableHead>Highest Offer</TableHead>
+                                  <TableHead>Salespersons</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {project.plots.map((plot) => (
+                                  <>
+                                    <TableRow 
+                                      key={plot._id}
+                                      className="cursor-pointer hover:bg-muted/30"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        togglePlot(plot._id);
+                                      }}
+                                      data-testid={`row-plot-${plot._id}`}
+                                    >
+                                      <TableCell>
+                                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                          {expandedPlots.has(plot._id) ? (
+                                            <ChevronDown className="h-4 w-4" />
+                                          ) : (
+                                            <ChevronRight className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                      </TableCell>
+                                      <TableCell className="font-medium" data-testid={`text-plot-number-${plot._id}`}>
+                                        {plot.plotNumber}
+                                      </TableCell>
+                                      <TableCell>{plot.size}</TableCell>
+                                      <TableCell className="font-semibold text-primary">
+                                        {formatCurrency(plot.price)}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge className={getStatusBadgeColor(plot.status)}>
+                                          {plot.status}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className="text-center">
+                                        <Badge variant="outline" className="gap-1">
+                                          <Users className="h-3 w-3" />
+                                          {plot.buyerInterestCount}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell>
+                                        {plot.highestOffer > 0 ? (
+                                          <span className="font-semibold text-green-600 flex items-center gap-1">
+                                            <TrendingUp className="h-3 w-3" />
+                                            {formatCurrency(plot.highestOffer)}
+                                          </span>
+                                        ) : (
+                                          <span className="text-muted-foreground">-</span>
+                                        )}
+                                      </TableCell>
+                                      <TableCell>
+                                        {plot.salespersons.length > 0 ? (
+                                          <div className="flex flex-wrap gap-1">
+                                            {plot.salespersons.slice(0, 2).map((sp, idx) => (
+                                              <Badge key={idx} variant="secondary" className="text-xs">
+                                                {sp.name}
+                                              </Badge>
+                                            ))}
+                                            {plot.salespersons.length > 2 && (
+                                              <Badge variant="secondary" className="text-xs">
+                                                +{plot.salespersons.length - 2}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground">-</span>
+                                        )}
+                                      </TableCell>
+                                    </TableRow>
+
+                                    {/* Expanded Buyer Interests */}
+                                    {expandedPlots.has(plot._id) && (
+                                      <TableRow>
+                                        <TableCell colSpan={8} className="p-0 bg-muted/10">
+                                          <div className="p-4 space-y-4">
+                                            <div className="flex items-center justify-between">
+                                              <h4 className="font-semibold text-sm">Buyer Interests & Competing Offers</h4>
+                                              <Button
+                                                size="sm"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setSelectedPlot(plot);
+                                                  setIsAddInterestOpen(true);
+                                                }}
+                                                data-testid={`button-add-interest-${plot._id}`}
+                                              >
+                                                <Plus className="h-3 w-3 mr-1" />
+                                                Add Interest
+                                              </Button>
+                                            </div>
+
+                                            {plot.buyerInterests.length > 0 ? (
+                                              <div className="space-y-3">
+                                                {plot.buyerInterests
+                                                  .sort((a, b) => b.offeredPrice - a.offeredPrice)
+                                                  .map((interest, index) => (
+                                                    <Card key={interest._id} className="border-l-4 border-l-primary" data-testid={`card-interest-${interest._id}`}>
+                                                      <CardContent className="p-4">
+                                                        <div className="grid grid-cols-5 gap-4 items-center">
+                                                          <div>
+                                                            <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                                                              <User className="h-3 w-3" />
+                                                              Buyer
+                                                            </Label>
+                                                            <p className="font-semibold text-sm">{interest.buyerName}</p>
+                                                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                                              <Phone className="h-3 w-3" />
+                                                              {interest.buyerContact}
+                                                            </div>
+                                                          </div>
+                                                          <div>
+                                                            <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                                                              <DollarSign className="h-3 w-3" />
+                                                              Offered Price
+                                                            </Label>
+                                                            <p className="font-bold text-green-600 flex items-center gap-2">
+                                                              {formatCurrency(interest.offeredPrice)}
+                                                              {index === 0 && plot.buyerInterests.length > 1 && (
+                                                                <Badge className="bg-green-600 text-white text-xs">
+                                                                  Highest
+                                                                </Badge>
+                                                              )}
+                                                            </p>
+                                                            {index > 0 && (
+                                                              <p className="text-xs text-muted-foreground mt-1">
+                                                                ₹{((plot.buyerInterests[0].offeredPrice - interest.offeredPrice) / 100000).toFixed(2)}L lower
+                                                              </p>
+                                                            )}
+                                                          </div>
+                                                          <div>
+                                                            <Label className="text-xs text-muted-foreground">Salesperson</Label>
+                                                            <p className="font-semibold text-sm">{interest.salespersonName}</p>
+                                                          </div>
+                                                          <div>
+                                                            <Label className="text-xs text-muted-foreground">Inquiry Date</Label>
+                                                            <p className="text-sm">
+                                                              {new Date(interest.createdAt).toLocaleDateString()}
+                                                            </p>
+                                                          </div>
+                                                          <div>
+                                                            {interest.notes && (
+                                                              <>
+                                                                <Label className="text-xs text-muted-foreground">Notes</Label>
+                                                                <p className="text-sm text-muted-foreground">{interest.notes}</p>
+                                                              </>
+                                                            )}
+                                                          </div>
+                                                        </div>
+                                                      </CardContent>
+                                                    </Card>
+                                                  ))}
+                                              </div>
+                                            ) : (
+                                              <div className="text-center py-6 text-muted-foreground">
+                                                <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                                <p className="text-sm">No buyer interests yet</p>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                  </>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       ) : (
         <Card className="py-12">
           <CardContent className="flex flex-col items-center justify-center text-center">
             <Building2 className="h-16 w-16 text-muted-foreground/50 mb-4" />
-            <p className="text-lg font-medium text-foreground">No plots found</p>
+            <p className="text-lg font-medium text-foreground">No projects found</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Try adjusting your filters or add new plots
+              Add a new project to get started
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Plot Details Modal */}
-      <Dialog open={isPlotDetailsOpen} onOpenChange={setIsPlotDetailsOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      {/* Add Buyer Interest Dialog */}
+      <Dialog open={isAddInterestOpen} onOpenChange={setIsAddInterestOpen}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-2xl">Plot Details - {selectedPlot?.plotNumber}</DialogTitle>
-            <DialogDescription>{getProjectName(selectedPlot?.projectId || "")}</DialogDescription>
+            <DialogTitle>Add Buyer Interest</DialogTitle>
+            <DialogDescription>
+              Track a new buyer interested in plot {selectedPlot?.plotNumber}
+            </DialogDescription>
           </DialogHeader>
-          
-          {selectedPlot && (
-            <div className="space-y-6">
-              {/* Plot Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Plot Information</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Plot ID</Label>
-                    <p className="font-semibold">{selectedPlot.plotNumber}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Size</Label>
-                    <p className="font-semibold">{selectedPlot.size}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Price</Label>
-                    <p className="font-semibold text-primary">{formatCurrency(selectedPlot.price)}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Status</Label>
-                    <Badge className={`${getStatusBadgeColor(selectedPlot.status)} text-white mt-1`}>
-                      {selectedPlot.status}
-                    </Badge>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Category</Label>
-                    <p className="font-semibold">{selectedPlot.category}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Facing</Label>
-                    <p className="font-semibold">{selectedPlot.facing || "N/A"}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <Label className="text-muted-foreground">Location</Label>
-                    <p className="font-semibold">{getProjectLocation(selectedPlot.projectId)}</p>
-                  </div>
-                  {selectedPlot.amenities && (
-                    <div className="col-span-2">
-                      <Label className="text-muted-foreground">Amenities</Label>
-                      <p className="font-semibold">{selectedPlot.amenities}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Summary Statistics */}
-              {plotStats && (
-                <div className="grid grid-cols-3 gap-4">
-                  <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-3">
-                        <Users className="h-8 w-8 text-blue-600" />
-                        <div>
-                          <p className="text-sm text-muted-foreground">Total Buyers</p>
-                          <p className="text-2xl font-bold">{plotStats.totalInterestedBuyers}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-3">
-                        <DollarSign className="h-8 w-8 text-green-600" />
-                        <div>
-                          <p className="text-sm text-muted-foreground">Avg Offer</p>
-                          <p className="text-2xl font-bold">
-                            {plotStats.averageOfferedPrice > 0
-                              ? formatCurrency(plotStats.averageOfferedPrice)
-                              : "N/A"}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-3">
-                        <TrendingUp className="h-8 w-8 text-purple-600" />
-                        <div>
-                          <p className="text-sm text-muted-foreground">Highest Offer</p>
-                          <p className="text-2xl font-bold">
-                            {plotStats.highestOffer > 0 ? formatCurrency(plotStats.highestOffer) : "N/A"}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-              {/* Interested Buyers */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Interested Buyers</CardTitle>
-                    <Dialog open={isAddInterestOpen} onOpenChange={setIsAddInterestOpen}>
-                      <DialogTrigger asChild>
-                        <Button size="sm">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Interest
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Add Buyer Interest</DialogTitle>
-                          <DialogDescription>Track a new buyer interested in this plot</DialogDescription>
-                        </DialogHeader>
-                        <Form {...buyerInterestForm}>
-                          <form
-                            onSubmit={buyerInterestForm.handleSubmit(handleBuyerInterestSubmit)}
-                            className="space-y-4"
-                          >
-                            <FormField
-                              control={buyerInterestForm.control}
-                              name="buyerName"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Buyer Name</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="John Doe" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={buyerInterestForm.control}
-                              name="buyerContact"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Contact Number</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="9876543210" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={buyerInterestForm.control}
-                              name="buyerEmail"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Email (Optional)</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="john@example.com" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={buyerInterestForm.control}
-                              name="offeredPrice"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Offered Price (₹)</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      {...field}
-                                      onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={buyerInterestForm.control}
-                              name="salespersonId"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Assigned Salesperson</FormLabel>
-                                  <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select salesperson" />
-                                      </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                      {salespersons?.map((sp: any) => (
-                                        <SelectItem key={sp._id} value={sp._id}>
-                                          {sp.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={buyerInterestForm.control}
-                              name="notes"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Notes (Optional)</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="Additional notes..." {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setIsAddInterestOpen(false)}
-                              >
-                                Cancel
-                              </Button>
-                              <Button type="submit" disabled={createBuyerInterestMutation.isPending}>
-                                {createBuyerInterestMutation.isPending ? "Adding..." : "Add Interest"}
-                              </Button>
-                            </div>
-                          </form>
-                        </Form>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {plotStats?.buyerInterests && plotStats.buyerInterests.length > 0 ? (
-                    <div className="space-y-4">
-                      {plotStats.buyerInterests.map((interest) => (
-                        <Card key={interest._id} className="border-l-4 border-l-primary">
-                          <CardContent className="pt-6">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label className="text-muted-foreground flex items-center gap-2">
-                                  <User className="h-4 w-4" />
-                                  Buyer Name
-                                </Label>
-                                <p className="font-semibold">{interest.buyerName}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground flex items-center gap-2">
-                                  <Phone className="h-4 w-4" />
-                                  Contact
-                                </Label>
-                                <p className="font-semibold">{interest.buyerContact}</p>
-                              </div>
-                              {interest.buyerEmail && (
-                                <div>
-                                  <Label className="text-muted-foreground flex items-center gap-2">
-                                    <Mail className="h-4 w-4" />
-                                    Email
-                                  </Label>
-                                  <p className="font-semibold">{interest.buyerEmail}</p>
-                                </div>
-                              )}
-                              <div>
-                                <Label className="text-muted-foreground flex items-center gap-2">
-                                  <DollarSign className="h-4 w-4" />
-                                  Offered Price
-                                </Label>
-                                <p className="font-semibold text-green-600">
-                                  {formatCurrency(interest.offeredPrice)}
-                                </p>
-                              </div>
-                              <div className="col-span-2">
-                                <Label className="text-muted-foreground">Salesperson Assigned</Label>
-                                <p className="font-semibold">{interest.salespersonName}</p>
-                              </div>
-                              {interest.notes && (
-                                <div className="col-span-2">
-                                  <Label className="text-muted-foreground">Notes</Label>
-                                  <p className="text-sm">{interest.notes}</p>
-                                </div>
-                              )}
-                              <div className="col-span-2">
-                                <Label className="text-muted-foreground">Inquiry Date</Label>
-                                <p className="text-sm">
-                                  {new Date(interest.createdAt).toLocaleDateString()} at{" "}
-                                  {new Date(interest.createdAt).toLocaleTimeString()}
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                      <p>No buyer interests yet</p>
-                      <p className="text-sm mt-1">Add buyer interests to track negotiations</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <Form {...buyerInterestForm}>
+            <form
+              onSubmit={buyerInterestForm.handleSubmit(handleBuyerInterestSubmit)}
+              className="space-y-4"
+            >
+              <FormField
+                control={buyerInterestForm.control}
+                name="buyerName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Buyer Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="John Doe" {...field} data-testid="input-buyer-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={buyerInterestForm.control}
+                name="buyerContact"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contact Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="9876543210" {...field} data-testid="input-buyer-contact" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={buyerInterestForm.control}
+                name="buyerEmail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="john@example.com" {...field} data-testid="input-buyer-email" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={buyerInterestForm.control}
+                name="offeredPrice"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Offered Price (₹)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                        data-testid="input-buyer-offered-price"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={buyerInterestForm.control}
+                name="salespersonId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Assigned Salesperson</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-buyer-salesperson">
+                          <SelectValue placeholder="Select salesperson" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {salespersons?.map((sp: any) => (
+                          <SelectItem key={sp._id} value={sp._id}>
+                            {sp.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={buyerInterestForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Additional notes..." {...field} data-testid="input-buyer-notes" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsAddInterestOpen(false)}
+                  data-testid="button-cancel-interest"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createBuyerInterestMutation.isPending} data-testid="button-submit-interest">
+                  {createBuyerInterestMutation.isPending ? "Adding..." : "Add Interest"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
