@@ -20,6 +20,10 @@ export type LeadSource = typeof leadSources[number];
 export const plotStatuses = ["Available", "Booked", "Hold", "Sold"] as const;
 export type PlotStatus = typeof plotStatuses[number];
 
+// Plot categories
+export const plotCategories = ["Investment Plot", "Bungalow Plot", "Residential Plot", "Commercial Plot", "Open Plot"] as const;
+export type PlotCategory = typeof plotCategories[number];
+
 // Payment modes
 export const paymentModes = ["Cash", "UPI", "Cheque", "Bank Transfer"] as const;
 export type PaymentMode = typeof paymentModes[number];
@@ -121,6 +125,8 @@ export interface Plot {
   price: number;
   facing?: string;
   status: PlotStatus;
+  category: PlotCategory;
+  amenities?: string;
   bookedBy?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -133,6 +139,8 @@ export const insertPlotSchema = z.object({
   price: z.number().min(0, "Price must be positive"),
   facing: z.string().optional(),
   status: z.enum(plotStatuses).default("Available"),
+  category: z.enum(plotCategories),
+  amenities: z.string().optional(),
 });
 
 export type InsertPlot = z.infer<typeof insertPlotSchema>;
@@ -184,6 +192,33 @@ export const insertActivityLogSchema = z.object({
 });
 
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+
+// ============= Buyer Interest Schema =============
+export interface BuyerInterest {
+  _id: string;
+  plotId: string;
+  buyerName: string;
+  buyerContact: string;
+  buyerEmail?: string;
+  offeredPrice: number;
+  salespersonId: string;
+  salespersonName: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const insertBuyerInterestSchema = z.object({
+  plotId: z.string().min(1, "Plot is required"),
+  buyerName: z.string().min(1, "Buyer name is required"),
+  buyerContact: z.string().min(10, "Contact number must be at least 10 digits"),
+  buyerEmail: z.string().email("Invalid email").optional().or(z.literal("")),
+  offeredPrice: z.number().min(0, "Offered price must be positive"),
+  salespersonId: z.string().min(1, "Salesperson is required"),
+  notes: z.string().optional(),
+});
+
+export type InsertBuyerInterest = z.infer<typeof insertBuyerInterestSchema>;
 
 // ============= Dashboard Stats =============
 export interface DashboardStats {

@@ -41,8 +41,9 @@ export async function seedDatabase() {
       description: "Premium residential plots with all modern amenities",
     });
 
-    // Create sample plots
+    // Create sample plots with categories
     const plotsData = [];
+    const categories = ["Investment Plot", "Bungalow Plot", "Residential Plot", "Commercial Plot", "Open Plot"];
     for (let i = 1; i <= 20; i++) {
       plotsData.push({
         projectId: project._id,
@@ -51,6 +52,8 @@ export async function seedDatabase() {
         price: 2000000 + i * 100000,
         facing: ["East", "West", "North", "South"][i % 4],
         status: i <= 15 ? "Available" : i <= 18 ? "Booked" : "Sold",
+        category: categories[i % categories.length],
+        amenities: "Water supply, Electricity, Road access",
       });
     }
     await PlotModel.insertMany(plotsData);

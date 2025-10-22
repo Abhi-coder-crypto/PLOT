@@ -7,6 +7,7 @@ import {
   PlotModel,
   PaymentModel,
   ActivityLogModel,
+  BuyerInterestModel,
 } from "./models";
 import { authenticateToken, requireAdmin, generateToken, type AuthRequest } from "./middleware/auth";
 import type { AuthResponse, DashboardStats, SalespersonStats } from "@shared/schema";
@@ -18,6 +19,7 @@ import {
   insertProjectSchema,
   insertPlotSchema,
   insertPaymentSchema,
+  insertBuyerInterestSchema,
 } from "@shared/schema";
 import { startOfDay, endOfDay } from "date-fns";
 
@@ -392,6 +394,120 @@ export function registerRoutes(app: Express) {
     } catch (error: any) {
       console.error("Create plot error:", error);
       res.status(500).json({ message: "Failed to create plot" });
+    }
+  });
+
+  // Get plots by category
+  app.get("/api/plots/category/:category", authenticateToken, async (req, res) => {
+    try {
+      const { category } = req.params;
+      const plots = await PlotModel.find({ category })
+        .populate("projectId")
+        .sort({ plotNumber: 1 });
+      res.json(plots);
+    } catch (error: any) {
+      console.error("Get plots by category error:", error);
+      res.status(500).json({ message: "Failed to fetch plots" });
+    }
+  });
+
+  // Get plot statistics (interested buyers, offers)
+  app.get("/api/plots/:id/stats", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const buyerInterests = await BuyerInterestModel.find({ plotId: id })
+        .populate("salespersonId", "name email phone");
+      
+      const stats = {
+        totalInterestedBuyers: buyerInterests.length,
+        averageOfferedPrice: buyerInterests.length > 0 
+          ? buyerInterests.reduce((sum, bi) => sum + bi.offeredPrice, 0) / buyerInterests.length 
+          : 0,
+        highestOffer: buyerInterests.length > 0 
+          ? Math.max(...buyerInterests.map(bi => bi.offeredPrice)) 
+          : 0,
+        buyerInterests: buyerInterests,
+      };
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Get plot stats error:", error);
+      res.status(500).json({ message: "Failed to fetch plot statistics" });
+    }
+  });
+
+  // ============= Buyer Interest Routes =============
+  app.get("/api/buyer-interests/:plotId", authenticateToken, async (req, res) => {
+    try {
+      const { plotId } = req.params;
+      const interests = await BuyerInterestModel.find({ plotId })
+        .populate("salespersonId", "name email phone")
+        .sort({ createdAt: -1 });
+      res.json(interests);
+    } catch (error: any) {
+      console.error("Get buyer interests error:", error);
+      res.status(500).json({ message: "Failed to fetch buyer interests" });
+    }
+  });
+
+  app.post("/api/buyer-interests", authenticateToken, async (req, res) => {
+    try {
+      const validationResult = insertBuyerInterestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: "Invalid request data" });
+      }
+
+      const { plotId, buyerName, buyerContact, buyerEmail, offeredPrice, salespersonId, notes } = validationResult.data;
+      
+      // Get salesperson name
+      const salesperson = await UserModel.findById(salespersonId);
+      if (!salesperson) {
+        return res.status(404).json({ message: "Salesperson not found" });
+      }
+
+      const buyerInterest = await BuyerInterestModel.create({
+        plotId,
+        buyerName,
+        buyerContact,
+        buyerEmail,
+        offeredPrice,
+        salespersonId,
+        salespersonName: salesperson.name,
+        notes,
+      });
+
+      // Log activity
+      const authReq = req as AuthRequest;
+      const plot = await PlotModel.findById(plotId);
+      await ActivityLogModel.create({
+        userId: authReq.user!._id,
+        userName: authReq.user!.email,
+        action: "Added Buyer Interest",
+        entityType: "plot",
+        entityId: plotId,
+        details: `${buyerName} interested in plot ${plot?.plotNumber} with offer ₹${offeredPrice}`,
+      });
+
+      res.status(201).json(buyerInterest);
+    } catch (error: any) {
+      console.error("Create buyer interest error:", error);
+      res.status(500).json({ message: "Failed to create buyer interest" });
+    }
+  });
+
+  app.delete("/api/buyer-interests/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const buyerInterest = await BuyerInterestModel.findByIdAndDelete(id);
+      
+      if (!buyerInterest) {
+        return res.status(404).json({ message: "Buyer interest not found" });
+      }
+
+      res.json({ message: "Buyer interest deleted successfully" });
+    } catch (error: any) {
+      console.error("Delete buyer interest error:", error);
+      res.status(500).json({ message: "Failed to delete buyer interest" });
     }
   });
 

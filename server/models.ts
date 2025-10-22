@@ -6,11 +6,13 @@ import type {
   Plot,
   Payment,
   ActivityLog,
+  BuyerInterest,
   UserRole,
   LeadStatus,
   LeadRating,
   LeadSource,
   PlotStatus,
+  PlotCategory,
   PaymentMode,
   BookingType,
 } from "@shared/schema";
@@ -98,6 +100,12 @@ const plotSchema = new Schema<IPlot>(
       enum: ["Available", "Booked", "Hold", "Sold"],
       default: "Available",
     },
+    category: {
+      type: String,
+      enum: ["Investment Plot", "Bungalow Plot", "Residential Plot", "Commercial Plot", "Open Plot"],
+      required: true,
+    },
+    amenities: String,
     bookedBy: { type: Schema.Types.ObjectId, ref: "Lead" },
   },
   { timestamps: true }
@@ -153,4 +161,26 @@ const activityLogSchema = new Schema<IActivityLog>(
 export const ActivityLogModel = mongoose.model<IActivityLog>(
   "ActivityLog",
   activityLogSchema
+);
+
+// Buyer Interest Model
+interface IBuyerInterest extends Omit<BuyerInterest, "_id">, Document {}
+
+const buyerInterestSchema = new Schema<IBuyerInterest>(
+  {
+    plotId: { type: Schema.Types.ObjectId, ref: "Plot", required: true },
+    buyerName: { type: String, required: true },
+    buyerContact: { type: String, required: true },
+    buyerEmail: String,
+    offeredPrice: { type: Number, required: true },
+    salespersonId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    salespersonName: { type: String, required: true },
+    notes: String,
+  },
+  { timestamps: true }
+);
+
+export const BuyerInterestModel = mongoose.model<IBuyerInterest>(
+  "BuyerInterest",
+  buyerInterestSchema
 );
