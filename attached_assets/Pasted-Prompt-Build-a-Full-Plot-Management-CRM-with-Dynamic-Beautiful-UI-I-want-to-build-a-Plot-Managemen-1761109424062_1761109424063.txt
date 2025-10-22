@@ -1,0 +1,218 @@
+Prompt: Build a Full Plot Management CRM with Dynamic Beautiful UI
+
+I want to build a Plot Management CRM web application with a modern, beautiful, and dynamic UI and a MongoDB database.
+I’ll provide the MongoDB URI once requested — so make sure the app asks me for it while setup.
+
+💡 Tech Stack
+
+Frontend: React.js (Next.js optional), Tailwind CSS, Framer Motion (for animations), ShadCN/UI for clean components.
+
+Backend: Node.js, Express.js.
+
+Database: MongoDB (cloud or local, I’ll provide URI).
+
+Auth: JWT-based Authentication.
+
+State Management: Redux Toolkit or Context API.
+
+Design System: Responsive, minimal yet professional; blue–gold color theme with glassmorphism touches.
+
+🎨 UI Expectations
+
+Beautiful, animated dashboard with smooth transitions (Framer Motion).
+
+Sidebar navigation with icons (Leads, Salespersons, Plots, Reports, Settings).
+
+Top navbar with user profile & notifications.
+
+Dynamic data cards showing total leads, bookings, revenue, available plots, etc.
+
+Table views for data (sortable, filterable, searchable).
+
+Popup modals for adding/editing leads, plots, and users.
+
+Color-coded lead stages:
+
+🟢 Hot, 🟡 Warm, 🔴 Cold
+
+🟢 Booked, 🟠 On Hold, 🔴 Lost
+
+Plot layout grid: clickable color-coded boxes (Available = Green, Booked = Red, Hold = Yellow).
+
+Light/Dark mode switch.
+
+🧑‍💼 User Roles
+1️⃣ Admin
+
+Full access to everything.
+
+Manage users (add/edit/delete salespersons).
+
+View all leads & assign to salespersons.
+
+Track each salesperson’s activity & performance.
+
+View follow-ups, missed tasks, and booked plots.
+
+Manage plots and projects.
+
+Generate and download reports (Leads, Payments, Bookings, etc.).
+
+2️⃣ Salesperson
+
+Login to view assigned leads only.
+
+Update lead status (New → Contacted → Interested → Site Visit → Booked → Lost).
+
+Add follow-up notes and next follow-up date.
+
+Book plots for leads (with customer details).
+
+View own performance dashboard.
+
+Receive notifications when new lead is assigned.
+
+📦 Modules & Features
+🧩 1. Authentication & Roles
+
+Login / Signup / Logout.
+
+JWT token-based authentication.
+
+Role-based access control (Admin vs Salesperson).
+
+📞 2. Lead Management System
+
+Add, Edit, Delete leads.
+
+Capture leads manually or via API integration (Facebook, Google Ads, Website).
+
+Assign leads to salesperson (manually or auto).
+
+Follow-up scheduling & reminders.
+
+Lead rating (Hot/Warm/Cold).
+
+Attach documents.
+
+Lead status timeline with activity history.
+
+Filters by date, source, stage, or assigned salesperson.
+
+🧑‍🤝‍🧑 3. Salesperson Management (Admin only)
+
+Add/Edit/Delete salesperson accounts.
+
+View each salesperson’s leads, conversions, follow-ups.
+
+Reassign leads between salespersons.
+
+Performance chart (using Recharts).
+
+🏠 4. Plot / Project Management
+
+Add new projects (project name, location, map image, total plots).
+
+Add/Edit/Delete plots under projects.
+
+Plot fields: Plot No, Size, Price, Facing, Status (Available / Booked / Hold / Sold).
+
+Clickable plot grid view (interactive color-coded map).
+
+Link plot booking to customer and payment info.
+
+💰 5. Booking & Payment
+
+Book a plot for a lead (customer info + payment details).
+
+Token booking / full booking options.
+
+Record payments (cash, UPI, cheque).
+
+Generate downloadable receipt PDF.
+
+Pending payment tracking & due alerts.
+
+📅 6. Follow-Up & Reminder System
+
+Add next follow-up date/time & note for every lead.
+
+Daily reminder dashboard (for each salesperson).
+
+Missed follow-ups alert on admin dashboard.
+
+📊 7. Dashboard & Reports
+
+Admin Dashboard includes:
+
+Total Leads, Converted, Lost, Unassigned.
+
+Total Projects, Booked vs Available Plots.
+
+Salesperson performance leaderboard.
+
+Source-wise lead pie chart.
+
+Weekly/monthly revenue trends.
+
+Activity timeline (who did what, when).
+
+Salesperson Dashboard includes:
+
+Today’s Follow-ups.
+
+Assigned leads summary.
+
+Conversion ratio.
+
+Activity summary (calls, visits).
+
+🧾 8. Documents
+
+Upload and view KYC, agreements, payment proofs.
+
+Auto-generate booking confirmation PDFs.
+
+🔔 9. Notifications
+
+Real-time notifications for:
+
+New lead assigned.
+
+Payment received.
+
+Upcoming follow-ups.
+
+Plot booking confirmation.
+
+⚙️ 10. Settings
+
+Manage lead sources, payment types, stages, and user roles.
+
+Theme settings (Light/Dark).
+
+🔐 Backend API Structure (Example)
+Module	Routes
+Auth	/api/auth/login, /api/auth/register, /api/auth/logout
+Leads	/api/leads, /api/leads/:id, /api/leads/assign, /api/leads/status
+Salesperson	/api/salespersons, /api/salespersons/:id
+Plots	/api/plots, /api/plots/:id, /api/plots/book
+Dashboard	/api/dashboard/admin, /api/dashboard/salesperson
+Payment	/api/payments, /api/payments/:id
+💾 Database Schema (MongoDB)
+
+You’ll need collections for:
+
+users (role, name, contact, password hash)
+
+leads (lead info, status, assignedTo, assignedBy, followUpDate, notes)
+
+plots (project, plotNo, area, status, price, bookedBy)
+
+projects (projectName, location, totalPlots)
+
+payments (leadId, amount, date, mode)
+
+notifications
+
+activity_logs
