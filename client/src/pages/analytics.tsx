@@ -58,7 +58,17 @@ import {
   Activity,
   Calendar,
   Award,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { exportToCSV, exportToExcel } from "@/lib/csv-export";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
@@ -96,11 +106,11 @@ export default function AnalyticsPage() {
   const { startDate, endDate } = getDateRange();
 
   const { data: overview, isLoading: overviewLoading } = useQuery<AnalyticsOverview>({
-    queryKey: ["/api/analytics/overview", startDate, endDate],
+    queryKey: [`/api/analytics/overview?startDate=${startDate}&endDate=${endDate}`],
   });
 
   const { data: performance, isLoading: performanceLoading } = useQuery<SalespersonPerformance[]>({
-    queryKey: ["/api/analytics/salesperson-performance", startDate, endDate],
+    queryKey: [`/api/analytics/salesperson-performance?startDate=${startDate}&endDate=${endDate}`],
   });
 
   const { data: dailyMetrics, isLoading: dailyLoading } = useQuery<DailyMetric[]>({
@@ -116,12 +126,83 @@ export default function AnalyticsPage() {
   });
 
   const { data: leadSources, isLoading: leadSourcesLoading } = useQuery<LeadSourceAnalysis[]>({
-    queryKey: ["/api/analytics/lead-source-analysis", startDate, endDate],
+    queryKey: [`/api/analytics/lead-source-analysis?startDate=${startDate}&endDate=${endDate}`],
   });
 
   const { data: plotPerformance, isLoading: plotLoading } = useQuery<PlotCategoryPerformance[]>({
     queryKey: ["/api/analytics/plot-category-performance"],
   });
+
+  const handleExportAnalytics = (format: "csv" | "excel") => {
+    if (!performance || performance.length === 0) {
+      alert("No analytics data to export");
+      return;
+    }
+
+    const exportData = performance.map((p) => ({
+      "Salesperson Name": p.name,
+      "Email": p.email,
+      "Total Contacts": p.totalContacts,
+      "Leads Assigned": p.leadsAssigned,
+      "Conversions": p.conversions,
+      "Conversion Rate (%)": p.conversionRate,
+      "Buyer Interests": p.buyerInterestsAdded,
+      "Revenue (₹)": p.revenue,
+      "Last Activity": p.lastActivity ? new Date(p.lastActivity).toLocaleDateString() : "No activity",
+    }));
+
+    const filename = `analytics-${dateRange}-${new Date().toISOString().split('T')[0]}`;
+    if (format === "csv") {
+      exportToCSV(exportData, filename);
+    } else {
+      exportToExcel(exportData, filename);
+    }
+  };
+
+  const handleExportLeadSources = (format: "csv" | "excel") => {
+    if (!leadSources || leadSources.length === 0) {
+      alert("No lead source data to export");
+      return;
+    }
+
+    const exportData = leadSources.map((ls) => ({
+      "Source": ls.source,
+      "Total Leads": ls.totalLeads,
+      "Conversions": ls.conversions,
+      "Conversion Rate (%)": ls.conversionRate,
+    }));
+
+    const filename = `lead-sources-${dateRange}-${new Date().toISOString().split('T')[0]}`;
+    if (format === "csv") {
+      exportToCSV(exportData, filename);
+    } else {
+      exportToExcel(exportData, filename);
+    }
+  };
+
+  const handleExportPlotPerformance = (format: "csv" | "excel") => {
+    if (!plotPerformance || plotPerformance.length === 0) {
+      alert("No plot performance data to export");
+      return;
+    }
+
+    const exportData = plotPerformance.map((pp) => ({
+      "Category": pp.category,
+      "Total Plots": pp.totalPlots,
+      "Available": pp.available,
+      "Booked": pp.booked,
+      "Sold": pp.sold,
+      "Average Price (₹)": pp.avgPrice,
+      "Occupancy Rate (%)": pp.occupancyRate,
+    }));
+
+    const filename = `plot-performance-${new Date().toISOString().split('T')[0]}`;
+    if (format === "csv") {
+      exportToCSV(exportData, filename);
+    } else {
+      exportToExcel(exportData, filename);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 dark:from-slate-950 dark:via-blue-950 dark:to-slate-900 p-6">
@@ -136,18 +217,38 @@ export default function AnalyticsPage() {
               Comprehensive team performance and business insights
             </p>
           </div>
-          <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-[200px]" data-testid="select-date-range">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="this_week">This Week</SelectItem>
-              <SelectItem value="this_month">This Month</SelectItem>
-              <SelectItem value="last_3_months">Last 3 Months</SelectItem>
-              <SelectItem value="last_6_months">Last 6 Months</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex gap-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" data-testid="button-export-analytics">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Analytics
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => handleExportAnalytics("csv")} data-testid="menu-export-csv">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportAnalytics("excel")} data-testid="menu-export-excel">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export as Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger className="w-[200px]" data-testid="select-date-range">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="this_week">This Week</SelectItem>
+                <SelectItem value="this_month">This Month</SelectItem>
+                <SelectItem value="last_3_months">Last 3 Months</SelectItem>
+                <SelectItem value="last_6_months">Last 6 Months</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Overview Cards */}

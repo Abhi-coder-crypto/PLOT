@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Search, Filter, Edit, Trash2, UserPlus, Eye, Repeat } from "lucide-react";
+import { Plus, Search, Filter, Edit, Trash2, UserPlus, Eye, Repeat, Download, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -40,6 +46,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Lead, User, InsertLead, Project, Plot, PopulatedUser } from "@shared/schema";
+import { exportToCSV, exportToExcel } from "@/lib/csv-export";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -289,6 +296,34 @@ export default function Leads() {
     }
   };
 
+  const handleExportLeads = (exportFormat: "csv" | "excel") => {
+    if (!filteredLeads || filteredLeads.length === 0) {
+      alert("No leads to export");
+      return;
+    }
+
+    const exportData = filteredLeads.map((lead) => ({
+      "Name": lead.name,
+      "Email": lead.email || "",
+      "Phone": lead.phone,
+      "Source": lead.source,
+      "Status": lead.status,
+      "Rating": lead.rating,
+      "Assigned To": typeof lead.assignedTo === 'object' ? (lead.assignedTo as PopulatedUser).name : "",
+      "Follow Up Date": lead.followUpDate ? format(new Date(lead.followUpDate), "dd/MM/yyyy") : "",
+      "Highest Offer (₹)": lead.highestOffer || 0,
+      "Notes": lead.notes || "",
+      "Created At": format(new Date(lead.createdAt), "dd/MM/yyyy HH:mm"),
+    }));
+
+    const filename = `leads-export-${new Date().toISOString().split('T')[0]}`;
+    if (exportFormat === "csv") {
+      exportToCSV(exportData, filename);
+    } else {
+      exportToExcel(exportData, filename);
+    }
+  };
+
   // Helper function to render leads table
   const renderLeadsTable = (leadsToRender: Lead[] | undefined, emptyMessage: string) => {
     if (!leadsToRender || leadsToRender.length === 0) {
@@ -431,13 +466,32 @@ export default function Leads() {
           <h1 className="text-3xl font-bold text-foreground">Leads Management</h1>
           <p className="text-muted-foreground mt-1">Track and manage all your leads</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-lead">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Lead
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" data-testid="button-export-leads">
+                <Download className="h-4 w-4 mr-2" />
+                Export Leads
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => handleExportLeads("csv")} data-testid="menu-export-leads-csv">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExportLeads("excel")} data-testid="menu-export-leads-excel">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Export as Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-lead">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Lead
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Lead</DialogTitle>
@@ -729,6 +783,7 @@ export default function Leads() {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-4">
