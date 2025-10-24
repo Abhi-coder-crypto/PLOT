@@ -657,7 +657,14 @@ export function registerRoutes(app: Express) {
           // Get lead interests for all plots in this project
           const leadInterests = await LeadInterestModel.find({
             plotIds: { $in: plotIds }
-          }).populate("leadId", "name phone email");
+          }).populate({
+            path: "leadId",
+            select: "name phone email assignedTo",
+            populate: {
+              path: "assignedTo",
+              select: "name email"
+            }
+          });
           
           // Calculate project-level stats
           const availablePlots = plots.filter(p => p.status === "Available").length;
@@ -675,7 +682,8 @@ export function registerRoutes(app: Express) {
               li.plotIds.some(pid => String(pid) === plotId)
             );
             
-            const interestCount = plotInterests.length;
+            // Calculate interest count from both buyer interests and lead interests
+            const interestCount = plotInterests.length + plotLeadInterests.length;
             
             // Calculate highest offer from both buyer interests and lead interests
             const buyerOffers = plotInterests.length > 0 
@@ -689,6 +697,8 @@ export function registerRoutes(app: Express) {
             
             // Get unique salespersons for this plot using Map for proper deduplication
             const salespersonsMap = new Map();
+            
+            // Add salespersons from buyer interests
             plotInterests.forEach(bi => {
               const salespersonDoc = bi.salespersonId as any;
               const salespersonId = salespersonDoc?._id ? String(salespersonDoc._id) : String(bi.salespersonId);
@@ -701,14 +711,31 @@ export function registerRoutes(app: Express) {
                 });
               }
             });
+            
+            // Add salespersons from lead interests
+            plotLeadInterests.forEach(li => {
+              const leadDoc = li.leadId as any;
+              const assignedToDoc = leadDoc?.assignedTo;
+              
+              if (assignedToDoc) {
+                const salespersonId = assignedToDoc._id ? String(assignedToDoc._id) : String(assignedToDoc);
+                const salespersonName = assignedToDoc.name || "Unknown";
+                
+                if (!salespersonsMap.has(salespersonId)) {
+                  salespersonsMap.set(salespersonId, {
+                    id: salespersonId,
+                    name: salespersonName,
+                  });
+                }
+              }
+            });
+            
             const salespersons = Array.from(salespersonsMap.values());
             
-            return {
-              ...plot.toObject(),
-              buyerInterestCount: interestCount,
-              highestOffer,
-              salespersons,
-              buyerInterests: plotInterests.map(bi => {
+            // Combine buyer interests and lead interests for display
+            const allInterests = [
+              // Map buyer interests
+              ...plotInterests.map(bi => {
                 const salespersonDoc = bi.salespersonId as any;
                 const salespersonId = salespersonDoc?._id ? String(salespersonDoc._id) : String(bi.salespersonId);
                 const salespersonName = salespersonDoc?.name || bi.salespersonName;
@@ -726,6 +753,34 @@ export function registerRoutes(app: Express) {
                   updatedAt: bi.updatedAt,
                 };
               }),
+              // Map lead interests
+              ...plotLeadInterests.map(li => {
+                const leadDoc = li.leadId as any;
+                const assignedToDoc = leadDoc?.assignedTo;
+                const salespersonId = assignedToDoc?._id ? String(assignedToDoc._id) : "";
+                const salespersonName = assignedToDoc?.name || "Unassigned";
+                
+                return {
+                  _id: String(li._id),
+                  buyerName: leadDoc?.name || "Unknown Lead",
+                  buyerContact: leadDoc?.phone || "",
+                  buyerEmail: leadDoc?.email || "",
+                  offeredPrice: li.highestOffer,
+                  salespersonId,
+                  salespersonName,
+                  notes: li.notes || "Lead interest",
+                  createdAt: li.createdAt,
+                  updatedAt: li.updatedAt,
+                };
+              })
+            ];
+            
+            return {
+              ...plot.toObject(),
+              buyerInterestCount: interestCount,
+              highestOffer,
+              salespersons,
+              buyerInterests: allInterests,
             };
           });
           
