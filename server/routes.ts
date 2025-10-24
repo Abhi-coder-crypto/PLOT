@@ -17,6 +17,7 @@ import {
   insertUserSchema,
   insertLeadSchema,
   assignLeadSchema,
+  transferLeadSchema,
   insertProjectSchema,
   insertPlotSchema,
   insertPaymentSchema,
@@ -81,7 +82,7 @@ export function registerRoutes(app: Express) {
   });
 
   // ============= User Routes =============
-  app.get("/api/users/salespersons", authenticateToken, requireAdmin, async (req, res) => {
+  app.get("/api/users/salespersons", authenticateToken, async (req, res) => {
     try {
       const salespersons = await UserModel.find({ role: "salesperson" })
         .select("-password")
@@ -154,6 +155,7 @@ export function registerRoutes(app: Express) {
       // Admins see all leads, Salespersons see all leads (admin leads + their own)
       const leads = await LeadModel.find({})
         .populate("assignedTo", "name email")
+        .populate("assignedBy", "name email")
         .sort({ createdAt: -1 });
       res.json(leads);
     } catch (error: any) {
@@ -283,6 +285,57 @@ export function registerRoutes(app: Express) {
     } catch (error: any) {
       console.error("Assign lead error:", error);
       res.status(500).json({ message: "Failed to assign lead" });
+    }
+  });
+
+  app.patch("/api/leads/:id/transfer", authenticateToken, async (req, res) => {
+    try {
+      const validationResult = transferLeadSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: "Invalid request data" });
+      }
+
+      const { salespersonId } = validationResult.data;
+      const authReq = req as AuthRequest;
+
+      const existingLead = await LeadModel.findById(req.params.id);
+      
+      if (!existingLead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      // Check if the lead is assigned to the current user (salesperson can only transfer their own leads)
+      // Admins can transfer any lead, but salespersons can only transfer leads assigned to them
+      if (authReq.user!.role === "salesperson") {
+        if (!existingLead.assignedTo || String(existingLead.assignedTo) !== authReq.user!._id) {
+          return res.status(403).json({ message: "You can only transfer leads assigned to you" });
+        }
+      }
+
+      const lead = await LeadModel.findByIdAndUpdate(
+        req.params.id,
+        {
+          assignedTo: salespersonId,
+          assignedBy: authReq.user!._id,
+        },
+        { new: true }
+      ).populate("assignedTo", "name email");
+
+      // Log activity
+      const salesperson = await UserModel.findById(salespersonId);
+      await ActivityLogModel.create({
+        userId: authReq.user!._id,
+        userName: authReq.user!.name,
+        action: "Transferred Lead",
+        entityType: "lead",
+        entityId: lead!._id,
+        details: `Transferred lead ${lead!.name} to ${salesperson?.name}`,
+      });
+
+      res.json(lead);
+    } catch (error: any) {
+      console.error("Transfer lead error:", error);
+      res.status(500).json({ message: "Failed to transfer lead" });
     }
   });
 

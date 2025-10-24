@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Search, Filter, Edit, Trash2, UserPlus, Eye } from "lucide-react";
+import { Plus, Search, Filter, Edit, Trash2, UserPlus, Eye, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -55,13 +55,14 @@ export default function Leads() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedPlotIds, setSelectedPlotIds] = useState<string[]>([]);
   const [editProjectId, setEditProjectId] = useState<string>("");
   const [editPlotIds, setEditPlotIds] = useState<string[]>([]);
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const { data: leads, isLoading } = useQuery<Lead[]>({
     queryKey: ["/api/leads"],
@@ -69,7 +70,6 @@ export default function Leads() {
 
   const { data: salespersons } = useQuery<User[]>({
     queryKey: ["/api/users/salespersons"],
-    enabled: isAdmin,
   });
 
   const { data: projects } = useQuery<Project[]>({
@@ -176,6 +176,20 @@ export default function Leads() {
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
       toast({ title: "Lead assigned successfully" });
       setIsAssignDialogOpen(false);
+      setSelectedLead(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const transferMutation = useMutation({
+    mutationFn: ({ leadId, salespersonId }: { leadId: string; salespersonId: string }) =>
+      apiRequest("PATCH", `/api/leads/${leadId}/transfer`, { salespersonId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ title: "Lead transferred successfully" });
+      setIsTransferDialogOpen(false);
       setSelectedLead(null);
     },
     onError: (error: any) => {
@@ -587,7 +601,7 @@ export default function Leads() {
                 <TableHead>Status</TableHead>
                 <TableHead>Rating</TableHead>
                 <TableHead>Follow-up</TableHead>
-                {isAdmin && <TableHead>Assigned To</TableHead>}
+                <TableHead>Assigned To</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -625,15 +639,15 @@ export default function Leads() {
                       <span className="text-sm text-muted-foreground">-</span>
                     )}
                   </TableCell>
-                  {isAdmin && (
-                    <TableCell>
-                      {lead.assignedTo ? (
-                        <span className="text-sm" data-testid={`text-assigned-to-${lead._id}`}>
-                          {typeof lead.assignedTo === 'object' 
-                            ? (lead.assignedTo as PopulatedUser).name 
-                            : 'Assigned'}
-                        </span>
-                      ) : (
+                  <TableCell>
+                    {lead.assignedTo ? (
+                      <span className="text-sm" data-testid={`text-assigned-to-${lead._id}`}>
+                        {typeof lead.assignedTo === 'object' 
+                          ? (lead.assignedTo as PopulatedUser).name 
+                          : 'Assigned'}
+                      </span>
+                    ) : (
+                      isAdmin ? (
                         <Button
                           size="sm"
                           variant="outline"
@@ -646,9 +660,11 @@ export default function Leads() {
                           <UserPlus className="h-3 w-3 mr-1" />
                           Assign
                         </Button>
-                      )}
-                    </TableCell>
-                  )}
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Unassigned</span>
+                      )
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
@@ -659,6 +675,19 @@ export default function Leads() {
                       >
                         <Eye className="h-3 w-3" />
                       </Button>
+                      {!isAdmin && lead.assignedTo && String(typeof lead.assignedTo === 'object' ? (lead.assignedTo as PopulatedUser)._id : lead.assignedTo) === user?._id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedLead(lead);
+                            setIsTransferDialogOpen(true);
+                          }}
+                          data-testid={`button-transfer-${lead._id}`}
+                        >
+                          <Repeat className="h-3 w-3" />
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
@@ -739,6 +768,28 @@ export default function Leads() {
               <div>
                 <Label className="text-muted-foreground">Notes</Label>
                 <p className="text-foreground font-medium">{selectedLead.notes || "No notes"}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Assigned To</Label>
+                  <p className="text-foreground font-medium">
+                    {selectedLead.assignedTo 
+                      ? (typeof selectedLead.assignedTo === 'object' 
+                        ? (selectedLead.assignedTo as PopulatedUser).name 
+                        : 'Assigned')
+                      : 'Unassigned'}
+                  </p>
+                </div>
+                {selectedLead.assignedBy && (
+                  <div>
+                    <Label className="text-muted-foreground">Transferred By</Label>
+                    <p className="text-foreground font-medium">
+                      {typeof selectedLead.assignedBy === 'object' 
+                        ? (selectedLead.assignedBy as PopulatedUser).name 
+                        : 'Transferred'}
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1066,6 +1117,44 @@ export default function Leads() {
                 </SelectTrigger>
                 <SelectContent>
                   {salespersons?.map((sp) => (
+                    <SelectItem key={sp._id} value={sp._id}>
+                      {sp.name} ({sp.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Dialog */}
+      <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transfer Lead</DialogTitle>
+            <DialogDescription>
+              Transfer {selectedLead?.name} to another salesperson
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Select Salesperson</Label>
+              <Select
+                onValueChange={(value) => {
+                  if (selectedLead) {
+                    transferMutation.mutate({
+                      leadId: selectedLead._id,
+                      salespersonId: value,
+                    });
+                  }
+                }}
+              >
+                <SelectTrigger data-testid="select-transfer-salesperson">
+                  <SelectValue placeholder="Choose a salesperson" />
+                </SelectTrigger>
+                <SelectContent>
+                  {salespersons?.filter(sp => sp._id !== user?._id).map((sp) => (
                     <SelectItem key={sp._id} value={sp._id}>
                       {sp.name} ({sp.email})
                     </SelectItem>

@@ -76,7 +76,7 @@ export interface Lead {
   status: LeadStatus;
   rating: LeadRating;
   assignedTo?: string | PopulatedUser;
-  assignedBy?: string;
+  assignedBy?: string | PopulatedUser;
   followUpDate?: Date;
   notes?: string;
   projectId?: string;
@@ -130,6 +130,12 @@ export const assignLeadSchema = z.object({
 });
 
 export type AssignLead = z.infer<typeof assignLeadSchema>;
+
+export const transferLeadSchema = z.object({
+  salespersonId: z.string().min(1, "Salesperson ID is required"),
+});
+
+export type TransferLead = z.infer<typeof transferLeadSchema>;
 
 // ============= Project Schema =============
 export interface Project {
