@@ -653,21 +653,38 @@ export function registerRoutes(app: Express) {
             plotId: { $in: plotIds } 
           }).populate("salespersonId", "name email");
           
+          // Get lead interests for all plots in this project
+          const leadInterests = await LeadInterestModel.find({
+            plotIds: { $in: plotIds }
+          }).populate("leadId", "name phone email");
+          
           // Calculate project-level stats
           const availablePlots = plots.filter(p => p.status === "Available").length;
           const bookedPlots = plots.filter(p => p.status === "Booked").length;
           const soldPlots = plots.filter(p => p.status === "Sold").length;
           const totalInterestedBuyers = buyerInterests.length;
           
-          // Enrich plots with buyer interest data
+          // Enrich plots with buyer interest and lead interest data
           const enrichedPlots = plots.map(plot => {
             const plotId = String(plot._id);
             const plotInterests = buyerInterests.filter(bi => String(bi.plotId) === plotId);
             
+            // Get lead interests that include this plot
+            const plotLeadInterests = leadInterests.filter(li => 
+              li.plotIds.some(pid => String(pid) === plotId)
+            );
+            
             const interestCount = plotInterests.length;
-            const highestOffer = plotInterests.length > 0 
-              ? Math.max(...plotInterests.map(bi => bi.offeredPrice)) 
-              : 0;
+            
+            // Calculate highest offer from both buyer interests and lead interests
+            const buyerOffers = plotInterests.length > 0 
+              ? plotInterests.map(bi => bi.offeredPrice)
+              : [];
+            const leadOffers = plotLeadInterests.length > 0
+              ? plotLeadInterests.map(li => li.highestOffer)
+              : [];
+            const allOffers = [...buyerOffers, ...leadOffers];
+            const highestOffer = allOffers.length > 0 ? Math.max(...allOffers) : 0;
             
             // Get unique salespersons for this plot using Map for proper deduplication
             const salespersonsMap = new Map();
