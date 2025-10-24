@@ -151,11 +151,8 @@ export function registerRoutes(app: Express) {
   app.get("/api/leads", authenticateToken, async (req, res) => {
     try {
       const authReq = req as AuthRequest;
-      const query = authReq.user!.role === "admin" 
-        ? {} 
-        : { assignedTo: authReq.user!._id };
-
-      const leads = await LeadModel.find(query)
+      // Admins see all leads, Salespersons see all leads (admin leads + their own)
+      const leads = await LeadModel.find({})
         .populate("assignedTo", "name email")
         .sort({ createdAt: -1 });
       res.json(leads);
@@ -205,10 +202,16 @@ export function registerRoutes(app: Express) {
       }
 
       const { projectId, plotIds, highestOffer, ...leadData } = validationResult.data;
+      const authReq = req as AuthRequest;
+      
+      // Auto-assign to salesperson if they create the lead and no assignedTo is specified
+      const assignedTo = leadData.assignedTo || 
+        (authReq.user!.role === "salesperson" ? authReq.user!._id : undefined);
       
       // Create lead with highestOffer, projectId, and plotIds
       const lead = await LeadModel.create({
         ...leadData,
+        assignedTo,
         projectId,
         plotIds,
         highestOffer,
@@ -292,11 +295,19 @@ export function registerRoutes(app: Express) {
       }
 
       const { projectId, plotIds, highestOffer, ...leadData } = validationResult.data;
+      const authReq = req as AuthRequest;
+      
+      // Auto-assign to salesperson if they edit and no assignedTo is specified
+      const existingLead = await LeadModel.findById(req.params.id);
+      const assignedTo = leadData.assignedTo || 
+        (existingLead && !existingLead.assignedTo && authReq.user!.role === "salesperson" 
+          ? authReq.user!._id 
+          : existingLead?.assignedTo);
 
       // Update the lead with all data including highestOffer
       const lead = await LeadModel.findByIdAndUpdate(
         req.params.id,
-        { ...leadData, projectId, plotIds, highestOffer },
+        { ...leadData, assignedTo, projectId, plotIds, highestOffer },
         { new: true }
       );
 
@@ -834,7 +845,7 @@ export function registerRoutes(app: Express) {
       const leadInterests = await LeadInterestModel.find({ 
         plotIds: plotId 
       })
-        .populate("leadId", "name contact email")
+        .populate("leadId", "name phone email")
         .sort({ createdAt: -1 });
       
       // Transform to match the expected format
@@ -854,7 +865,7 @@ export function registerRoutes(app: Express) {
           return {
             _id: String(interest._id),
             buyerName: lead.name,
-            buyerContact: lead.contact,
+            buyerContact: lead.phone,
             buyerEmail: lead.email || "",
             offeredPrice: interest.highestOffer,
             salespersonName,
