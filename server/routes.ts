@@ -670,7 +670,7 @@ export function registerRoutes(app: Express) {
           const availablePlots = plots.filter(p => p.status === "Available").length;
           const bookedPlots = plots.filter(p => p.status === "Booked").length;
           const soldPlots = plots.filter(p => p.status === "Sold").length;
-          const totalInterestedBuyers = buyerInterests.length;
+          const totalInterestedBuyers = (buyerInterests?.length || 0) + (leadInterests?.length || 0);
           
           // Enrich plots with buyer interest and lead interest data
           const enrichedPlots = plots.map(plot => {
@@ -742,6 +742,7 @@ export function registerRoutes(app: Express) {
                 
                 return {
                   _id: String(bi._id),
+                  type: "buyer_interest" as const,
                   buyerName: bi.buyerName,
                   buyerContact: bi.buyerContact,
                   buyerEmail: bi.buyerEmail,
@@ -757,11 +758,12 @@ export function registerRoutes(app: Express) {
               ...plotLeadInterests.map(li => {
                 const leadDoc = li.leadId as any;
                 const assignedToDoc = leadDoc?.assignedTo;
-                const salespersonId = assignedToDoc?._id ? String(assignedToDoc._id) : "";
+                const salespersonId = assignedToDoc?._id ? String(assignedToDoc._id) : "unassigned";
                 const salespersonName = assignedToDoc?.name || "Unassigned";
                 
                 return {
                   _id: String(li._id),
+                  type: "lead_interest" as const,
                   buyerName: leadDoc?.name || "Unknown Lead",
                   buyerContact: leadDoc?.phone || "",
                   buyerEmail: leadDoc?.email || "",
