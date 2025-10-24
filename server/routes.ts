@@ -15,6 +15,7 @@ import type { AuthResponse, DashboardStats, SalespersonStats } from "@shared/sch
 import {
   loginSchema,
   insertUserSchema,
+  updateUserSchema,
   insertLeadSchema,
   assignLeadSchema,
   transferLeadSchema,
@@ -135,6 +136,58 @@ export function registerRoutes(app: Express) {
     } catch (error: any) {
       console.error("Create user error:", error);
       res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  app.patch("/api/users/:id", authenticateToken, requireAdmin, async (req, res) => {
+    try {
+      const validationResult = updateUserSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: "Invalid request data" });
+      }
+
+      const { name, email, password, role, phone } = validationResult.data;
+
+      const user = await UserModel.findById(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (email !== user.email) {
+        const existingUser = await UserModel.findOne({ email });
+        if (existingUser) {
+          return res.status(400).json({ message: "Email already exists" });
+        }
+      }
+
+      user.name = name;
+      user.email = email;
+      user.role = role;
+      user.phone = phone;
+
+      if (password && password.trim() !== "") {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        user.password = hashedPassword;
+      }
+
+      await user.save();
+
+      const authReq = req as AuthRequest;
+      await ActivityLogModel.create({
+        userId: authReq.user!._id,
+        userName: authReq.user!.name,
+        action: "Updated User",
+        entityType: "user",
+        entityId: user._id,
+        details: `Updated ${role} account for ${name}`,
+      });
+
+      const userResponse = user.toObject();
+      delete (userResponse as any).password;
+      res.json(userResponse);
+    } catch (error: any) {
+      console.error("Update user error:", error);
+      res.status(500).json({ message: "Failed to update user" });
     }
   });
 

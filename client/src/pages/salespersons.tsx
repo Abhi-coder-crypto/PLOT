@@ -20,7 +20,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { User, InsertUser } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertUserSchema } from "@shared/schema";
+import { insertUserSchema, updateUserSchema } from "@shared/schema";
+import type { UpdateUser } from "@shared/schema";
 import {
   Form,
   FormControl,
@@ -33,6 +34,8 @@ import {
 export default function Salespersons() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedSalesperson, setSelectedSalesperson] = useState<User | null>(null);
   const { toast } = useToast();
 
   const { data: salespersons, isLoading } = useQuery<User[]>({
@@ -50,6 +53,17 @@ export default function Salespersons() {
     },
   });
 
+  const editForm = useForm<UpdateUser>({
+    resolver: zodResolver(updateUserSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      role: "salesperson",
+      phone: "",
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: (data: InsertUser) => apiRequest("POST", "/api/users", data),
     onSuccess: () => {
@@ -57,6 +71,20 @@ export default function Salespersons() {
       toast({ title: "Salesperson created successfully" });
       setIsAddDialogOpen(false);
       form.reset();
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateUser }) =>
+      apiRequest("PATCH", `/api/users/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users/salespersons"] });
+      toast({ title: "Salesperson updated successfully" });
+      setIsEditDialogOpen(false);
+      setSelectedSalesperson(null);
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -81,6 +109,24 @@ export default function Salespersons() {
 
   const handleSubmit = (data: InsertUser) => {
     createMutation.mutate(data);
+  };
+
+  const handleEdit = (salesperson: User) => {
+    setSelectedSalesperson(salesperson);
+    editForm.reset({
+      name: salesperson.name,
+      email: salesperson.email,
+      password: "",
+      role: "salesperson",
+      phone: salesperson.phone || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdate = (data: UpdateUser) => {
+    if (selectedSalesperson) {
+      updateMutation.mutate({ id: selectedSalesperson._id, data });
+    }
   };
 
   return (
@@ -175,6 +221,85 @@ export default function Salespersons() {
             </Form>
           </DialogContent>
         </Dialog>
+
+        {/* Edit Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Salesperson</DialogTitle>
+              <DialogDescription>Update salesperson details and password</DialogDescription>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(handleUpdate)} className="space-y-4">
+                <FormField
+                  control={editForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="John Doe" {...field} data-testid="input-edit-salesperson-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="john@example.com" {...field} data-testid="input-edit-salesperson-email" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="9876543210" {...field} data-testid="input-edit-salesperson-phone" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password (Leave blank to keep current)</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} data-testid="input-edit-salesperson-password" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsEditDialogOpen(false)}
+                    data-testid="button-cancel-edit-salesperson"
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={updateMutation.isPending} data-testid="button-submit-edit-salesperson">
+                    {updateMutation.isPending ? "Updating..." : "Update"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="relative">
@@ -198,7 +323,7 @@ export default function Salespersons() {
             <div
               key={salesperson._id}
             >
-              <Card className="hover-elevate" data-testid={`card-salesperson-${salesperson._id}`}>
+              <Card className="hover-elevate cursor-pointer" data-testid={`card-salesperson-${salesperson._id}`} onClick={() => handleEdit(salesperson)}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -213,7 +338,10 @@ export default function Salespersons() {
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => deleteMutation.mutate(salesperson._id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteMutation.mutate(salesperson._id);
+                      }}
                       disabled={deleteMutation.isPending}
                       data-testid={`button-delete-${salesperson._id}`}
                     >

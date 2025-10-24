@@ -53,6 +53,16 @@ export const insertUserSchema = z.object({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
+export const updateUserSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Invalid email"),
+  password: z.string().min(6, "Password must be at least 6 characters").optional().or(z.literal("")),
+  role: z.enum(userRoles),
+  phone: z.string().optional(),
+});
+
+export type UpdateUser = z.infer<typeof updateUserSchema>;
+
 export const loginSchema = z.object({
   email: z.string().email("Invalid email"),
   password: z.string().min(1, "Password is required"),

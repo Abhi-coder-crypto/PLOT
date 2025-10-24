@@ -27,6 +27,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -216,7 +222,8 @@ export default function Leads() {
     }
   };
 
-  const filteredLeads = leads?.filter((lead) => {
+  // Filter leads based on search and filters
+  const baseFilteredLeads = leads?.filter((lead) => {
     const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.phone.includes(searchTerm) ||
       (lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
@@ -224,6 +231,24 @@ export default function Leads() {
     const matchesRating = ratingFilter === "all" || lead.rating === ratingFilter;
     return matchesSearch && matchesStatus && matchesRating;
   });
+
+  // Split leads for salespeople
+  const myLeads = !isAdmin && user ? baseFilteredLeads?.filter((lead) => {
+    const assignedToId = lead.assignedTo 
+      ? (typeof lead.assignedTo === 'object' ? (lead.assignedTo as PopulatedUser)._id : lead.assignedTo)
+      : null;
+    return assignedToId === user._id;
+  }) : [];
+
+  const otherLeads = !isAdmin && user ? baseFilteredLeads?.filter((lead) => {
+    const assignedToId = lead.assignedTo 
+      ? (typeof lead.assignedTo === 'object' ? (lead.assignedTo as PopulatedUser)._id : lead.assignedTo)
+      : null;
+    return assignedToId !== user._id;
+  }) : [];
+
+  // For admins, show all filtered leads
+  const filteredLeads = isAdmin ? baseFilteredLeads : baseFilteredLeads;
 
   const handleSubmit = (data: InsertLead) => {
     createMutation.mutate(data);
@@ -262,6 +287,141 @@ export default function Leads() {
     if (selectedLead) {
       updateMutation.mutate({ id: selectedLead._id, data });
     }
+  };
+
+  // Helper function to render leads table
+  const renderLeadsTable = (leadsToRender: Lead[] | undefined, emptyMessage: string) => {
+    if (!leadsToRender || leadsToRender.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Filter className="h-12 w-12 text-muted-foreground/50 mb-3" />
+          <p className="text-lg font-medium text-foreground">No leads found</p>
+          <p className="text-sm text-muted-foreground mt-1">{emptyMessage}</p>
+        </div>
+      );
+    }
+
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Contact</TableHead>
+            <TableHead>Source</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Rating</TableHead>
+            <TableHead>Follow-up</TableHead>
+            <TableHead>Assigned To</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {leadsToRender.map((lead) => (
+            <TableRow
+              key={lead._id}
+              className="hover-elevate"
+              data-testid={`row-lead-${lead._id}`}
+            >
+              <TableCell className="font-medium">{lead.name}</TableCell>
+              <TableCell>
+                <div className="text-sm">
+                  <div>{lead.phone}</div>
+                  {lead.email && <div className="text-muted-foreground">{lead.email}</div>}
+                </div>
+              </TableCell>
+              <TableCell>{lead.source}</TableCell>
+              <TableCell>
+                <Badge className={getStatusColor(lead.status)} data-testid={`badge-status-${lead._id}`}>
+                  {lead.status}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Badge className={getRatingColor(lead.rating)} data-testid={`badge-rating-${lead._id}`}>
+                  {lead.rating}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                {lead.followUpDate ? (
+                  <span className="text-sm text-muted-foreground">
+                    {format(new Date(lead.followUpDate), "PP")}
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground">-</span>
+                )}
+              </TableCell>
+              <TableCell>
+                {lead.assignedTo ? (
+                  <span className="text-sm" data-testid={`text-assigned-to-${lead._id}`}>
+                    {typeof lead.assignedTo === 'object' 
+                      ? (lead.assignedTo as PopulatedUser).name 
+                      : 'Assigned'}
+                  </span>
+                ) : (
+                  isAdmin ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedLead(lead);
+                        setIsAssignDialogOpen(true);
+                      }}
+                      data-testid={`button-assign-${lead._id}`}
+                    >
+                      <UserPlus className="h-3 w-3 mr-1" />
+                      Assign
+                    </Button>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Unassigned</span>
+                  )
+                )}
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleView(lead)}
+                    data-testid={`button-view-${lead._id}`}
+                  >
+                    <Eye className="h-3 w-3" />
+                  </Button>
+                  {!isAdmin && lead.assignedTo && String(typeof lead.assignedTo === 'object' ? (lead.assignedTo as PopulatedUser)._id : lead.assignedTo) === user?._id && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedLead(lead);
+                        setIsTransferDialogOpen(true);
+                      }}
+                      data-testid={`button-transfer-${lead._id}`}
+                    >
+                      <Repeat className="h-3 w-3" />
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEdit(lead)}
+                    data-testid={`button-edit-${lead._id}`}
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => deleteMutation.mutate(lead._id)}
+                    disabled={deleteMutation.isPending}
+                    data-testid={`button-delete-${lead._id}`}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
   };
 
   return (
@@ -431,6 +591,32 @@ export default function Leads() {
                   )}
                 />
 
+                {/* Salesperson Assignment for all users */}
+                <FormField
+                  control={form.control}
+                  name="assignedTo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assign to Salesperson (Optional)</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-lead-salesperson">
+                            <SelectValue placeholder="Select a salesperson" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {salespersons?.map((sp) => (
+                            <SelectItem key={sp._id} value={sp._id}>
+                              {sp.name} ({sp.email})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <div className="border-t pt-4">
                   <h3 className="font-semibold mb-3">Project Interest (Optional)</h3>
                   
@@ -586,139 +772,52 @@ export default function Leads() {
         </Select>
       </div>
 
-      <div className="rounded-lg border border-border bg-card">
-        {isLoading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          </div>
-        ) : filteredLeads && filteredLeads.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Rating</TableHead>
-                <TableHead>Follow-up</TableHead>
-                <TableHead>Assigned To</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredLeads.map((lead) => (
-                <TableRow
-                  key={lead._id}
-                  className="hover-elevate"
-                  data-testid={`row-lead-${lead._id}`}
-                >
-                  <TableCell className="font-medium">{lead.name}</TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      <div>{lead.phone}</div>
-                      {lead.email && <div className="text-muted-foreground">{lead.email}</div>}
-                    </div>
-                  </TableCell>
-                  <TableCell>{lead.source}</TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(lead.status)} data-testid={`badge-status-${lead._id}`}>
-                      {lead.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getRatingColor(lead.rating)} data-testid={`badge-rating-${lead._id}`}>
-                      {lead.rating}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {lead.followUpDate ? (
-                      <span className="text-sm text-muted-foreground">
-                        {format(new Date(lead.followUpDate), "PP")}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {lead.assignedTo ? (
-                      <span className="text-sm" data-testid={`text-assigned-to-${lead._id}`}>
-                        {typeof lead.assignedTo === 'object' 
-                          ? (lead.assignedTo as PopulatedUser).name 
-                          : 'Assigned'}
-                      </span>
-                    ) : (
-                      isAdmin ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedLead(lead);
-                            setIsAssignDialogOpen(true);
-                          }}
-                          data-testid={`button-assign-${lead._id}`}
-                        >
-                          <UserPlus className="h-3 w-3 mr-1" />
-                          Assign
-                        </Button>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">Unassigned</span>
-                      )
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleView(lead)}
-                        data-testid={`button-view-${lead._id}`}
-                      >
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                      {!isAdmin && lead.assignedTo && String(typeof lead.assignedTo === 'object' ? (lead.assignedTo as PopulatedUser)._id : lead.assignedTo) === user?._id && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedLead(lead);
-                            setIsTransferDialogOpen(true);
-                          }}
-                          data-testid={`button-transfer-${lead._id}`}
-                        >
-                          <Repeat className="h-3 w-3" />
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEdit(lead)}
-                        data-testid={`button-edit-${lead._id}`}
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => deleteMutation.mutate(lead._id)}
-                        disabled={deleteMutation.isPending}
-                        data-testid={`button-delete-${lead._id}`}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Filter className="h-12 w-12 text-muted-foreground/50 mb-3" />
-            <p className="text-lg font-medium text-foreground">No leads found</p>
-            <p className="text-sm text-muted-foreground mt-1">Try adjusting your filters or add a new lead</p>
-          </div>
-        )}
-      </div>
+      {/* Admin View - Single Table */}
+      {isAdmin ? (
+        <div className="rounded-lg border border-border bg-card">
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            renderLeadsTable(filteredLeads, "Try adjusting your filters or add a new lead")
+          )}
+        </div>
+      ) : (
+        /* Salesperson View - Tabbed Interface */
+        <Tabs defaultValue="my-leads" className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="my-leads" data-testid="tab-my-leads">
+              My Leads ({myLeads?.length || 0})
+            </TabsTrigger>
+            <TabsTrigger value="other-leads" data-testid="tab-other-leads">
+              Other Leads ({otherLeads?.length || 0})
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="my-leads" className="mt-4">
+            <div className="rounded-lg border border-border bg-card">
+              {isLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                renderLeadsTable(myLeads, "You don't have any assigned leads yet")
+              )}
+            </div>
+          </TabsContent>
+          <TabsContent value="other-leads" className="mt-4">
+            <div className="rounded-lg border border-border bg-card">
+              {isLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                renderLeadsTable(otherLeads, "No other leads available")
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      )}
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
