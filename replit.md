@@ -6,6 +6,13 @@ This is a full-featured Plot Management CRM web application designed for real es
 
 ## Recent Changes (October 2025)
 
+- **Salesperson Access to Projects and Plots** (Oct 24, 2025): Enabled salespeople to view all projects and plots for lead assignment:
+  - Removed restrictive filtering from `/api/projects` and `/api/plots` endpoints
+  - Salespeople can now see all available projects and plots when creating or editing leads
+  - Project/plot/highest offer fields now fully functional in lead creation and edit forms for salespeople
+  - Added plot price display in lead forms (shows "Plot #X (size) - ₹price") for better context
+  - Backend mutation routes (create/edit/delete projects and plots) remain admin-only for security
+  - This allows salespeople to properly assign leads to any property while maintaining data security
 - **Complete Lead Interest Integration in Plots Module** (Oct 24, 2025): Seamless display of lead interests alongside buyer interests in plots overview:
   - **Project-Level**: Total interested buyers count now includes both BuyerInterest and LeadInterest records
   - **Plot-Level Buyer Count**: Displays combined count from both buyer interests and lead interests
