@@ -8,6 +8,7 @@ import {
   PaymentModel,
   ActivityLogModel,
   BuyerInterestModel,
+  LeadInterestModel,
 } from "./models";
 import { authenticateToken, requireAdmin, generateToken, type AuthRequest } from "./middleware/auth";
 import type { AuthResponse, DashboardStats, SalespersonStats } from "@shared/schema";
@@ -20,6 +21,7 @@ import {
   insertPlotSchema,
   insertPaymentSchema,
   insertBuyerInterestSchema,
+  insertLeadInterestSchema,
 } from "@shared/schema";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, format } from "date-fns";
 
@@ -289,6 +291,226 @@ export function registerRoutes(app: Express) {
     } catch (error: any) {
       console.error("Delete lead error:", error);
       res.status(500).json({ message: "Failed to delete lead" });
+    }
+  });
+
+  // ============= Lead Interest Routes =============
+  app.get("/api/lead-interests", authenticateToken, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      let interests;
+
+      if (authReq.user!.role === "admin") {
+        interests = await LeadInterestModel.find()
+          .populate("leadId")
+          .populate("projectId")
+          .populate("plotIds")
+          .sort({ createdAt: -1 });
+      } else {
+        const assignedLeads = await LeadModel.find({ assignedTo: authReq.user!._id });
+        const leadIds = assignedLeads.map(lead => lead._id);
+        interests = await LeadInterestModel.find({ leadId: { $in: leadIds } })
+          .populate("leadId")
+          .populate("projectId")
+          .populate("plotIds")
+          .sort({ createdAt: -1 });
+      }
+
+      res.json(interests);
+    } catch (error: any) {
+      console.error("Get lead interests error:", error);
+      res.status(500).json({ message: "Failed to fetch lead interests" });
+    }
+  });
+
+  app.get("/api/lead-interests/lead/:leadId", authenticateToken, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      
+      if (authReq.user!.role !== "admin") {
+        const lead = await LeadModel.findOne({ 
+          _id: req.params.leadId, 
+          assignedTo: authReq.user!._id 
+        });
+        if (!lead) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+
+      const interests = await LeadInterestModel.find({ leadId: req.params.leadId })
+        .populate("projectId")
+        .populate("plotIds")
+        .sort({ createdAt: -1 });
+      res.json(interests);
+    } catch (error: any) {
+      console.error("Get lead interests by lead error:", error);
+      res.status(500).json({ message: "Failed to fetch lead interests" });
+    }
+  });
+
+  app.get("/api/lead-interests/plot/:plotId", authenticateToken, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      let interests;
+
+      if (authReq.user!.role === "admin") {
+        interests = await LeadInterestModel.find({ plotIds: req.params.plotId })
+          .populate("leadId")
+          .populate("projectId")
+          .sort({ createdAt: -1 });
+      } else {
+        const assignedLeads = await LeadModel.find({ assignedTo: authReq.user!._id });
+        const leadIds = assignedLeads.map(lead => lead._id);
+        interests = await LeadInterestModel.find({ 
+          plotIds: req.params.plotId,
+          leadId: { $in: leadIds }
+        })
+          .populate("leadId")
+          .populate("projectId")
+          .sort({ createdAt: -1 });
+      }
+
+      res.json(interests);
+    } catch (error: any) {
+      console.error("Get lead interests by plot error:", error);
+      res.status(500).json({ message: "Failed to fetch lead interests" });
+    }
+  });
+
+  app.post("/api/lead-interests", authenticateToken, async (req, res) => {
+    try {
+      const validationResult = insertLeadInterestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: "Invalid request data" });
+      }
+
+      const { leadId, projectId, plotIds } = validationResult.data;
+
+      const lead = await LeadModel.findById(leadId);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      const authReq = req as AuthRequest;
+      if (authReq.user!.role !== "admin" && String(lead.assignedTo) !== authReq.user!._id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const project = await ProjectModel.findById(projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const plots = await PlotModel.find({ _id: { $in: plotIds } });
+      if (plots.length !== plotIds.length) {
+        return res.status(404).json({ message: "One or more plots not found" });
+      }
+
+      const invalidPlots = plots.filter(plot => String(plot.projectId) !== projectId);
+      if (invalidPlots.length > 0) {
+        return res.status(400).json({ message: "All plots must belong to the specified project" });
+      }
+
+      const interest = await LeadInterestModel.create(validationResult.data);
+
+      await ActivityLogModel.create({
+        userId: authReq.user!._id,
+        userName: authReq.user!.email,
+        action: "Added Lead Interest",
+        entityType: "lead",
+        entityId: leadId,
+        details: `Added interest for ${lead.name} in ${project.name}`,
+      });
+
+      const populatedInterest = await LeadInterestModel.findById(interest._id)
+        .populate("leadId")
+        .populate("projectId")
+        .populate("plotIds");
+
+      res.status(201).json(populatedInterest);
+    } catch (error: any) {
+      console.error("Create lead interest error:", error);
+      res.status(500).json({ message: "Failed to create lead interest" });
+    }
+  });
+
+  app.patch("/api/lead-interests/:id", authenticateToken, async (req, res) => {
+    try {
+      const validationResult = insertLeadInterestSchema.partial().safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: "Invalid request data" });
+      }
+
+      const existingInterest = await LeadInterestModel.findById(req.params.id).populate("leadId");
+      if (!existingInterest) {
+        return res.status(404).json({ message: "Lead interest not found" });
+      }
+
+      const authReq = req as AuthRequest;
+      const lead = existingInterest.leadId as any;
+      if (authReq.user!.role !== "admin" && String(lead.assignedTo) !== authReq.user!._id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (validationResult.data.projectId) {
+        if (authReq.user!.role !== "admin") {
+          return res.status(403).json({ message: "Only admins can change project assignments" });
+        }
+
+        if (!validationResult.data.plotIds) {
+          return res.status(400).json({ message: "plotIds must be provided when updating projectId" });
+        }
+
+        const project = await ProjectModel.findById(validationResult.data.projectId);
+        if (!project) {
+          return res.status(404).json({ message: "Project not found" });
+        }
+      }
+
+      const finalProjectId = validationResult.data.projectId || existingInterest.projectId;
+
+      if (validationResult.data.plotIds) {
+        const plots = await PlotModel.find({ _id: { $in: validationResult.data.plotIds } });
+        if (plots.length !== validationResult.data.plotIds.length) {
+          return res.status(404).json({ message: "One or more plots not found" });
+        }
+        const invalidPlots = plots.filter(plot => String(plot.projectId) !== String(finalProjectId));
+        if (invalidPlots.length > 0) {
+          return res.status(400).json({ message: "All plots must belong to the specified project" });
+        }
+      }
+
+      const interest = await LeadInterestModel.findByIdAndUpdate(
+        req.params.id,
+        validationResult.data,
+        { new: true }
+      ).populate("leadId").populate("projectId").populate("plotIds");
+
+      res.json(interest);
+    } catch (error: any) {
+      console.error("Update lead interest error:", error);
+      res.status(500).json({ message: "Failed to update lead interest" });
+    }
+  });
+
+  app.delete("/api/lead-interests/:id", authenticateToken, async (req, res) => {
+    try {
+      const interest = await LeadInterestModel.findById(req.params.id).populate("leadId");
+      if (!interest) {
+        return res.status(404).json({ message: "Lead interest not found" });
+      }
+
+      const authReq = req as AuthRequest;
+      const lead = interest.leadId as any;
+      if (authReq.user!.role !== "admin" && String(lead.assignedTo) !== authReq.user!._id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await LeadInterestModel.findByIdAndDelete(req.params.id);
+      res.json({ message: "Lead interest deleted successfully" });
+    } catch (error: any) {
+      console.error("Delete lead interest error:", error);
+      res.status(500).json({ message: "Failed to delete lead interest" });
     }
   });
 

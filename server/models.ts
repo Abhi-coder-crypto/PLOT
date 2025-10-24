@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from "mongoose";
 import type {
   User,
   Lead,
+  LeadInterest,
   Project,
   Plot,
   Payment,
@@ -57,8 +58,8 @@ const leadSchema = new Schema<ILead>(
     },
     rating: {
       type: String,
-      enum: ["Urgent", "Intermediate", "Low"],
-      default: "Intermediate",
+      enum: ["Urgent", "High", "Low"],
+      default: "High",
     },
     assignedTo: { type: Schema.Types.ObjectId, ref: "User" },
     assignedBy: { type: Schema.Types.ObjectId, ref: "User" },
@@ -183,4 +184,23 @@ const buyerInterestSchema = new Schema<IBuyerInterest>(
 export const BuyerInterestModel = mongoose.model<IBuyerInterest>(
   "BuyerInterest",
   buyerInterestSchema
+);
+
+// Lead Interest Model
+interface ILeadInterest extends Omit<LeadInterest, "_id">, Document {}
+
+const leadInterestSchema = new Schema<ILeadInterest>(
+  {
+    leadId: { type: Schema.Types.ObjectId, ref: "Lead", required: true },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
+    plotIds: [{ type: Schema.Types.ObjectId, ref: "Plot" }],
+    highestOffer: { type: Number, required: true },
+    notes: String,
+  },
+  { timestamps: true }
+);
+
+export const LeadInterestModel = mongoose.model<ILeadInterest>(
+  "LeadInterest",
+  leadInterestSchema
 );

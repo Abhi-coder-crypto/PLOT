@@ -91,6 +91,28 @@ export const insertLeadSchema = z.object({
 
 export type InsertLead = z.infer<typeof insertLeadSchema>;
 
+// ============= Lead Interest Schema =============
+export interface LeadInterest {
+  _id: string;
+  leadId: string;
+  projectId: string;
+  plotIds: string[];
+  highestOffer: number;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const insertLeadInterestSchema = z.object({
+  leadId: z.string().min(1, "Lead is required"),
+  projectId: z.string().min(1, "Project is required"),
+  plotIds: z.array(z.string()).min(1, "At least one plot must be selected"),
+  highestOffer: z.number().min(0, "Offer must be positive"),
+  notes: z.string().optional(),
+});
+
+export type InsertLeadInterest = z.infer<typeof insertLeadInterestSchema>;
+
 export const assignLeadSchema = z.object({
   salespersonId: z.string().min(1, "Salesperson ID is required"),
 });
