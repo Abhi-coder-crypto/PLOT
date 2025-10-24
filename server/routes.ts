@@ -229,7 +229,6 @@ export function registerRoutes(app: Express) {
       }
 
       // Log activity
-      const authReq = req as AuthRequest;
       await ActivityLogModel.create({
         userId: authReq.user!._id,
         userName: authReq.user!.name,
@@ -346,7 +345,6 @@ export function registerRoutes(app: Express) {
         await LeadInterestModel.deleteMany({ leadId: lead._id });
       }
 
-      const authReq = req as AuthRequest;
       await ActivityLogModel.create({
         userId: authReq.user!._id,
         userName: authReq.user!.name,
@@ -841,40 +839,39 @@ export function registerRoutes(app: Express) {
     try {
       const { plotId } = req.params;
       
-      // Find all lead interests that include this plot
+      // Find all lead interests that include this plot and populate lead with assignedTo
       const leadInterests = await LeadInterestModel.find({ 
         plotIds: plotId 
       })
-        .populate("leadId", "name phone email")
+        .populate({
+          path: "leadId",
+          select: "name phone email assignedTo",
+          populate: {
+            path: "assignedTo",
+            select: "name email"
+          }
+        })
         .sort({ createdAt: -1 });
       
       // Transform to match the expected format
-      const transformedInterests = await Promise.all(
-        leadInterests.map(async (interest) => {
-          const lead = interest.leadId as any;
-          
-          // Get salesperson info from the lead
-          let salespersonName = "N/A";
-          if (lead.assignedTo) {
-            const salesperson = await UserModel.findById(lead.assignedTo);
-            if (salesperson) {
-              salespersonName = salesperson.name;
-            }
-          }
-          
-          return {
-            _id: String(interest._id),
-            buyerName: lead.name,
-            buyerContact: lead.phone,
-            buyerEmail: lead.email || "",
-            offeredPrice: interest.highestOffer,
-            salespersonName,
-            notes: interest.notes || "",
-            createdAt: interest.createdAt,
-            updatedAt: interest.updatedAt,
-          };
-        })
-      );
+      const transformedInterests = leadInterests.map((interest) => {
+        const lead = interest.leadId as any;
+        
+        // Get salesperson name from populated assignedTo
+        const salespersonName = lead.assignedTo?.name || "N/A";
+        
+        return {
+          _id: String(interest._id),
+          buyerName: lead.name,
+          buyerContact: lead.phone,
+          buyerEmail: lead.email || "",
+          offeredPrice: interest.highestOffer,
+          salespersonName,
+          notes: interest.notes || "",
+          createdAt: interest.createdAt,
+          updatedAt: interest.updatedAt,
+        };
+      });
       
       res.json(transformedInterests);
     } catch (error: any) {
