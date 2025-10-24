@@ -665,47 +665,28 @@ export function registerRoutes(app: Express) {
           const availablePlots = plots.filter(p => p.status === "Available").length;
           const bookedPlots = plots.filter(p => p.status === "Booked").length;
           const soldPlots = plots.filter(p => p.status === "Sold").length;
-          const totalInterestedBuyers = (buyerInterests?.length || 0) + (leadInterests?.length || 0);
+          const totalInterestedBuyers = leadInterests?.length || 0;
           
-          // Enrich plots with buyer interest and lead interest data
+          // Enrich plots with lead interest data only
           const enrichedPlots = plots.map(plot => {
             const plotId = String(plot._id);
-            const plotInterests = buyerInterests.filter(bi => String(bi.plotId) === plotId);
             
             // Get lead interests that include this plot
             const plotLeadInterests = leadInterests.filter(li => 
               li.plotIds.some(pid => String(pid) === plotId)
             );
             
-            // Calculate interest count from both buyer interests and lead interests
-            const interestCount = plotInterests.length + plotLeadInterests.length;
+            // Calculate interest count from lead interests only
+            const interestCount = plotLeadInterests.length;
             
-            // Calculate highest offer from both buyer interests and lead interests
-            const buyerOffers = plotInterests.length > 0 
-              ? plotInterests.map(bi => bi.offeredPrice)
-              : [];
+            // Calculate highest offer from lead interests
             const leadOffers = plotLeadInterests.length > 0
               ? plotLeadInterests.map(li => li.highestOffer)
               : [];
-            const allOffers = [...buyerOffers, ...leadOffers];
-            const highestOffer = allOffers.length > 0 ? Math.max(...allOffers) : 0;
+            const highestOffer = leadOffers.length > 0 ? Math.max(...leadOffers) : 0;
             
-            // Get unique salespersons for this plot using Map for proper deduplication
+            // Get unique salespersons for this plot
             const salespersonsMap = new Map();
-            
-            // Add salespersons from buyer interests
-            plotInterests.forEach(bi => {
-              const salespersonDoc = bi.salespersonId as any;
-              const salespersonId = salespersonDoc?._id ? String(salespersonDoc._id) : String(bi.salespersonId);
-              const salespersonName = salespersonDoc?.name || bi.salespersonName;
-              
-              if (!salespersonsMap.has(salespersonId)) {
-                salespersonsMap.set(salespersonId, {
-                  id: salespersonId,
-                  name: salespersonName,
-                });
-              }
-            });
             
             // Add salespersons from lead interests
             plotLeadInterests.forEach(li => {
@@ -727,57 +708,11 @@ export function registerRoutes(app: Express) {
             
             const salespersons = Array.from(salespersonsMap.values());
             
-            // Combine buyer interests and lead interests for display
-            const allInterests = [
-              // Map buyer interests
-              ...plotInterests.map(bi => {
-                const salespersonDoc = bi.salespersonId as any;
-                const salespersonId = salespersonDoc?._id ? String(salespersonDoc._id) : String(bi.salespersonId);
-                const salespersonName = salespersonDoc?.name || bi.salespersonName;
-                
-                return {
-                  _id: String(bi._id),
-                  type: "buyer_interest" as const,
-                  buyerName: bi.buyerName,
-                  buyerContact: bi.buyerContact,
-                  buyerEmail: bi.buyerEmail,
-                  offeredPrice: bi.offeredPrice,
-                  salespersonId,
-                  salespersonName,
-                  notes: bi.notes,
-                  createdAt: bi.createdAt,
-                  updatedAt: bi.updatedAt,
-                };
-              }),
-              // Map lead interests
-              ...plotLeadInterests.map(li => {
-                const leadDoc = li.leadId as any;
-                const assignedToDoc = leadDoc?.assignedTo;
-                const salespersonId = assignedToDoc?._id ? String(assignedToDoc._id) : "unassigned";
-                const salespersonName = assignedToDoc?.name || "Unassigned";
-                
-                return {
-                  _id: String(li._id),
-                  type: "lead_interest" as const,
-                  buyerName: leadDoc?.name || "Unknown Lead",
-                  buyerContact: leadDoc?.phone || "",
-                  buyerEmail: leadDoc?.email || "",
-                  offeredPrice: li.highestOffer,
-                  salespersonId,
-                  salespersonName,
-                  notes: li.notes || "Lead interest",
-                  createdAt: li.createdAt,
-                  updatedAt: li.updatedAt,
-                };
-              })
-            ];
-            
             return {
               ...plot.toObject(),
               buyerInterestCount: interestCount,
               highestOffer,
               salespersons,
-              buyerInterests: allInterests,
             };
           });
           
