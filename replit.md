@@ -6,6 +6,15 @@ This is a full-featured Plot Management CRM web application designed for real es
 
 ## Recent Changes (October 2025)
 
+- **Lead Edit Form Enhanced** (Oct 24, 2025): Added comprehensive editing capabilities to leads management:
+  - Added project selection dropdown to edit form with cascading plot selection
+  - Multi-select checkboxes for plots (filtered by selected project)
+  - Salesperson assignment dropdown for admin users (shows name and email)
+  - Backend routes now populate assignedTo field with user data (name, email)
+  - Leads table displays actual salesperson name instead of generic "Assigned" text
+  - Updated Lead schema with PopulatedUser type for type-safe handling of populated fields
+  - MongoDB Lead model extended with projectId, plotIds, and highestOffer fields
+  - Form state properly handles optional fields with placeholder-based UI
 - **Lead Creation with Project/Plot Interest** (Oct 24, 2025): Enhanced lead creation workflow to capture property interest at initial contact:
   - Added project selection dropdown to lead creation form
   - Cascading plot selection with multi-select checkboxes (filters plots by selected project)
