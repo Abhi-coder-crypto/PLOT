@@ -31,11 +31,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Project, InsertPlot, InsertProject, InsertBuyerInterest, User as UserType } from "@shared/schema";
+import type { Project, InsertPlot, InsertProject, User as UserType } from "@shared/schema";
 import { plotStatuses, plotCategories } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertPlotSchema, insertProjectSchema, insertBuyerInterestSchema } from "@shared/schema";
+import { insertPlotSchema, insertProjectSchema } from "@shared/schema";
 import {
   Form,
   FormControl,
@@ -70,27 +70,12 @@ interface PlotWithInterests {
   buyerInterestCount: number;
   highestOffer: number;
   salespersons: Array<{ id: string; name: string }>;
-  buyerInterests: Array<{
-    _id: string;
-    buyerName: string;
-    buyerContact: string;
-    buyerEmail?: string;
-    offeredPrice: number;
-    salespersonId: string;
-    salespersonName: string;
-    notes?: string;
-    createdAt: string;
-    updatedAt: string;
-  }>;
 }
 
 export default function Plots() {
   const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
   const [isAddPlotOpen, setIsAddPlotOpen] = useState(false);
-  const [isAddInterestOpen, setIsAddInterestOpen] = useState(false);
-  const [selectedPlot, setSelectedPlot] = useState<PlotWithInterests | null>(null);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
-  const [expandedPlots, setExpandedPlots] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const { toast } = useToast();
@@ -128,18 +113,6 @@ export default function Plots() {
     },
   });
 
-  const buyerInterestForm = useForm<InsertBuyerInterest>({
-    resolver: zodResolver(insertBuyerInterestSchema),
-    defaultValues: {
-      plotId: "",
-      buyerName: "",
-      buyerContact: "",
-      buyerEmail: "",
-      offeredPrice: 0,
-      salespersonId: "",
-      notes: "",
-    },
-  });
 
   const createProjectMutation = useMutation({
     mutationFn: (data: InsertProject) => apiRequest("POST", "/api/projects", data),
@@ -167,18 +140,6 @@ export default function Plots() {
     },
   });
 
-  const createBuyerInterestMutation = useMutation({
-    mutationFn: (data: InsertBuyerInterest) => apiRequest("POST", "/api/buyer-interests", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects/overview"] });
-      toast({ title: "Buyer interest added successfully" });
-      setIsAddInterestOpen(false);
-      buyerInterestForm.reset();
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
 
   const handleProjectSubmit = (data: InsertProject) => {
     createProjectMutation.mutate(data);
@@ -188,14 +149,6 @@ export default function Plots() {
     createPlotMutation.mutate(data);
   };
 
-  const handleBuyerInterestSubmit = (data: InsertBuyerInterest) => {
-    if (selectedPlot) {
-      createBuyerInterestMutation.mutate({
-        ...data,
-        plotId: selectedPlot._id,
-      });
-    }
-  };
 
   const toggleProject = (projectId: string) => {
     const newExpanded = new Set(expandedProjects);
@@ -207,15 +160,6 @@ export default function Plots() {
     setExpandedProjects(newExpanded);
   };
 
-  const togglePlot = (plotId: string) => {
-    const newExpanded = new Set(expandedPlots);
-    if (newExpanded.has(plotId)) {
-      newExpanded.delete(plotId);
-    } else {
-      newExpanded.add(plotId);
-    }
-    setExpandedPlots(newExpanded);
-  };
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -643,7 +587,6 @@ export default function Plots() {
                             <Table>
                               <TableHeader>
                                 <TableRow className="bg-muted/50">
-                                  <TableHead className="w-[50px]"></TableHead>
                                   <TableHead>Plot Number</TableHead>
                                   <TableHead>Size</TableHead>
                                   <TableHead>Price</TableHead>
@@ -655,25 +598,11 @@ export default function Plots() {
                               </TableHeader>
                               <TableBody>
                                 {project.plots.map((plot) => (
-                                  <>
                                     <TableRow 
                                       key={plot._id}
-                                      className="cursor-pointer hover:bg-muted/30"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        togglePlot(plot._id);
-                                      }}
+                                      className="hover:bg-muted/30"
                                       data-testid={`row-plot-${plot._id}`}
                                     >
-                                      <TableCell>
-                                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                          {expandedPlots.has(plot._id) ? (
-                                            <ChevronDown className="h-4 w-4" />
-                                          ) : (
-                                            <ChevronRight className="h-4 w-4" />
-                                          )}
-                                        </Button>
-                                      </TableCell>
                                       <TableCell className="font-medium" data-testid={`text-plot-number-${plot._id}`}>
                                         {plot.plotNumber}
                                       </TableCell>
@@ -721,100 +650,6 @@ export default function Plots() {
                                         )}
                                       </TableCell>
                                     </TableRow>
-
-                                    {/* Expanded Buyer Interests */}
-                                    {expandedPlots.has(plot._id) && (
-                                      <TableRow>
-                                        <TableCell colSpan={8} className="p-0 bg-muted/10">
-                                          <div className="p-4 space-y-4">
-                                            <div className="flex items-center justify-between">
-                                              <h4 className="font-semibold text-sm">Buyer Interests & Competing Offers</h4>
-                                              <Button
-                                                size="sm"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  setSelectedPlot(plot);
-                                                  setIsAddInterestOpen(true);
-                                                }}
-                                                data-testid={`button-add-interest-${plot._id}`}
-                                              >
-                                                <Plus className="h-3 w-3 mr-1" />
-                                                Add Interest
-                                              </Button>
-                                            </div>
-
-                                            {plot.buyerInterests.length > 0 ? (
-                                              <div className="space-y-3">
-                                                {plot.buyerInterests
-                                                  .sort((a, b) => b.offeredPrice - a.offeredPrice)
-                                                  .map((interest, index) => (
-                                                    <Card key={interest._id} className="border-l-4 border-l-primary" data-testid={`card-interest-${interest._id}`}>
-                                                      <CardContent className="p-4">
-                                                        <div className="grid grid-cols-5 gap-4 items-center">
-                                                          <div>
-                                                            <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                                                              <User className="h-3 w-3" />
-                                                              Buyer
-                                                            </Label>
-                                                            <p className="font-semibold text-sm">{interest.buyerName}</p>
-                                                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                                                              <Phone className="h-3 w-3" />
-                                                              {interest.buyerContact}
-                                                            </div>
-                                                          </div>
-                                                          <div>
-                                                            <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                                                              <DollarSign className="h-3 w-3" />
-                                                              Offered Price
-                                                            </Label>
-                                                            <p className="font-bold text-green-600 flex items-center gap-2">
-                                                              {formatCurrency(interest.offeredPrice)}
-                                                              {index === 0 && plot.buyerInterests.length > 1 && (
-                                                                <Badge className="bg-green-600 text-white text-xs">
-                                                                  Highest
-                                                                </Badge>
-                                                              )}
-                                                            </p>
-                                                            {index > 0 && (
-                                                              <p className="text-xs text-muted-foreground mt-1">
-                                                                ₹{((plot.buyerInterests[0].offeredPrice - interest.offeredPrice) / 100000).toFixed(2)}L lower
-                                                              </p>
-                                                            )}
-                                                          </div>
-                                                          <div>
-                                                            <Label className="text-xs text-muted-foreground">Salesperson</Label>
-                                                            <p className="font-semibold text-sm">{interest.salespersonName}</p>
-                                                          </div>
-                                                          <div>
-                                                            <Label className="text-xs text-muted-foreground">Inquiry Date</Label>
-                                                            <p className="text-sm">
-                                                              {new Date(interest.createdAt).toLocaleDateString()}
-                                                            </p>
-                                                          </div>
-                                                          <div>
-                                                            {interest.notes && (
-                                                              <>
-                                                                <Label className="text-xs text-muted-foreground">Notes</Label>
-                                                                <p className="text-sm text-muted-foreground">{interest.notes}</p>
-                                                              </>
-                                                            )}
-                                                          </div>
-                                                        </div>
-                                                      </CardContent>
-                                                    </Card>
-                                                  ))}
-                                              </div>
-                                            ) : (
-                                              <div className="text-center py-6 text-muted-foreground">
-                                                <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                                <p className="text-sm">No buyer interests yet</p>
-                                              </div>
-                                            )}
-                                          </div>
-                                        </TableCell>
-                                      </TableRow>
-                                    )}
-                                  </>
                                 ))}
                               </TableBody>
                             </Table>
@@ -839,132 +674,6 @@ export default function Plots() {
           </CardContent>
         </Card>
       )}
-
-      {/* Add Buyer Interest Dialog */}
-      <Dialog open={isAddInterestOpen} onOpenChange={setIsAddInterestOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Buyer Interest</DialogTitle>
-            <DialogDescription>
-              Track a new buyer interested in plot {selectedPlot?.plotNumber}
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...buyerInterestForm}>
-            <form
-              onSubmit={buyerInterestForm.handleSubmit(handleBuyerInterestSubmit)}
-              className="space-y-4"
-            >
-              <FormField
-                control={buyerInterestForm.control}
-                name="buyerName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Buyer Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} data-testid="input-buyer-name" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={buyerInterestForm.control}
-                name="buyerContact"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contact Number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="9876543210" {...field} data-testid="input-buyer-contact" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={buyerInterestForm.control}
-                name="buyerEmail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="john@example.com" {...field} data-testid="input-buyer-email" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={buyerInterestForm.control}
-                name="offeredPrice"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Offered Price (₹)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                        data-testid="input-buyer-offered-price"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={buyerInterestForm.control}
-                name="salespersonId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Assigned Salesperson</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-buyer-salesperson">
-                          <SelectValue placeholder="Select salesperson" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {salespersons?.map((sp: any) => (
-                          <SelectItem key={sp._id} value={sp._id}>
-                            {sp.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={buyerInterestForm.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Additional notes..." {...field} data-testid="input-buyer-notes" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsAddInterestOpen(false)}
-                  data-testid="button-cancel-interest"
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createBuyerInterestMutation.isPending} data-testid="button-submit-interest">
-                  {createBuyerInterestMutation.isPending ? "Adding..." : "Add Interest"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
