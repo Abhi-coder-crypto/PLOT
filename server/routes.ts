@@ -205,7 +205,14 @@ export function registerRoutes(app: Express) {
       }
 
       const { projectId, plotIds, highestOffer, ...leadData } = validationResult.data;
-      const lead = await LeadModel.create(leadData);
+      
+      // Create lead with highestOffer, projectId, and plotIds
+      const lead = await LeadModel.create({
+        ...leadData,
+        projectId,
+        plotIds,
+        highestOffer,
+      });
 
       // If project and plots are selected, create a lead interest record
       if (projectId && plotIds && plotIds.length > 0) {
@@ -284,14 +291,47 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ message: "Invalid request data" });
       }
 
+      const { projectId, plotIds, highestOffer, ...leadData } = validationResult.data;
+
+      // Update the lead with all data including highestOffer
       const lead = await LeadModel.findByIdAndUpdate(
         req.params.id,
-        validationResult.data,
+        { ...leadData, projectId, plotIds, highestOffer },
         { new: true }
       );
 
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
+      }
+
+      // Handle LeadInterest upsert if project and plots are provided
+      if (projectId && plotIds && plotIds.length > 0) {
+        // Find existing lead interest for this lead and project
+        const existingInterest = await LeadInterestModel.findOne({
+          leadId: lead._id,
+          projectId: projectId,
+        });
+
+        if (existingInterest) {
+          // Update existing interest
+          await LeadInterestModel.findByIdAndUpdate(existingInterest._id, {
+            plotIds,
+            highestOffer: highestOffer || 0,
+            notes: `Updated from lead edit on ${new Date().toISOString()}`,
+          });
+        } else {
+          // Create new interest
+          await LeadInterestModel.create({
+            leadId: lead._id,
+            projectId,
+            plotIds,
+            highestOffer: highestOffer || 0,
+            notes: `Added from lead edit on ${new Date().toISOString()}`,
+          });
+        }
+      } else if (!projectId) {
+        // If project is cleared, remove all lead interests for this lead
+        await LeadInterestModel.deleteMany({ leadId: lead._id });
       }
 
       const authReq = req as AuthRequest;
@@ -301,7 +341,7 @@ export function registerRoutes(app: Express) {
         action: "Updated Lead",
         entityType: "lead",
         entityId: lead._id,
-        details: `Updated lead ${lead.name}`,
+        details: `Updated lead ${lead.name}${projectId ? ' with project interest' : ''}`,
       });
 
       res.json(lead);
