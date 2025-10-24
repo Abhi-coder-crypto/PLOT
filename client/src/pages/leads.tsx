@@ -119,6 +119,7 @@ export default function Leads() {
       projectId: "",
       plotIds: [],
       assignedTo: "",
+      highestOffer: 0,
     },
   });
 
@@ -144,9 +145,13 @@ export default function Leads() {
       apiRequest("PATCH", `/api/leads/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects/overview"] });
       toast({ title: "Lead updated successfully" });
       setIsEditDialogOpen(false);
       setSelectedLead(null);
+      setEditProjectId("");
+      setEditPlotIds([]);
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -229,6 +234,7 @@ export default function Leads() {
       projectId: lead.projectId || "",
       plotIds: lead.plotIds || [],
       assignedTo: assignedToId,
+      highestOffer: lead.highestOffer || 0,
     });
     setIsEditDialogOpen(true);
   };
@@ -949,33 +955,54 @@ export default function Leads() {
                 )}
               />
               {editProjectId && editFilteredPlots.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Select Plots (Optional)</Label>
-                  <div className="border rounded-md p-4 max-h-48 overflow-y-auto space-y-2">
-                    {editFilteredPlots.map((plot) => (
-                      <div key={plot._id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`edit-plot-${plot._id}`}
-                          checked={editPlotIds.includes(plot._id)}
-                          onCheckedChange={(checked) => {
-                            const newPlotIds = checked
-                              ? [...editPlotIds, plot._id]
-                              : editPlotIds.filter((id) => id !== plot._id);
-                            setEditPlotIds(newPlotIds);
-                            editForm.setValue("plotIds", newPlotIds);
-                          }}
-                          data-testid={`checkbox-edit-plot-${plot._id}`}
-                        />
-                        <label
-                          htmlFor={`edit-plot-${plot._id}`}
-                          className="text-sm cursor-pointer"
-                        >
-                          Plot #{plot.plotNumber} - {plot.size} - ₹{plot.price.toLocaleString()}
-                        </label>
-                      </div>
-                    ))}
+                <>
+                  <div className="space-y-2">
+                    <Label>Select Plots (Optional)</Label>
+                    <div className="border rounded-md p-4 max-h-48 overflow-y-auto space-y-2">
+                      {editFilteredPlots.map((plot) => (
+                        <div key={plot._id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`edit-plot-${plot._id}`}
+                            checked={editPlotIds.includes(plot._id)}
+                            onCheckedChange={(checked) => {
+                              const newPlotIds = checked
+                                ? [...editPlotIds, plot._id]
+                                : editPlotIds.filter((id) => id !== plot._id);
+                              setEditPlotIds(newPlotIds);
+                              editForm.setValue("plotIds", newPlotIds);
+                            }}
+                            data-testid={`checkbox-edit-plot-${plot._id}`}
+                          />
+                          <label
+                            htmlFor={`edit-plot-${plot._id}`}
+                            className="text-sm cursor-pointer"
+                          >
+                            Plot #{plot.plotNumber} - {plot.size} - ₹{plot.price.toLocaleString()}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+
+                  <FormField
+                    control={editForm.control}
+                    name="highestOffer"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Highest Offer (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="Enter amount" 
+                            {...field}
+                            data-testid="input-edit-lead-offer" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
               )}
               <FormField
                 control={editForm.control}
