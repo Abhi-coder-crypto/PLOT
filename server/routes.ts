@@ -48,8 +48,19 @@ export function registerRoutes(app: Express) {
 
       const token = generateToken({
         _id: String(user._id),
+        name: user.name,
         email: user.email,
         role: user.role,
+      });
+
+      // Log login activity
+      await ActivityLogModel.create({
+        userId: user._id,
+        userName: user.name,
+        action: "User Login",
+        entityType: "user",
+        entityId: user._id,
+        details: `${user.name} (${user.role}) logged in`,
       });
 
       const response: AuthResponse = {
@@ -110,7 +121,7 @@ export function registerRoutes(app: Express) {
       const authReq = req as AuthRequest;
       await ActivityLogModel.create({
         userId: authReq.user!._id,
-        userName: authReq.user!.email,
+        userName: authReq.user!.name,
         action: "Created User",
         entityType: "user",
         entityId: user._id,
@@ -211,7 +222,7 @@ export function registerRoutes(app: Express) {
       const authReq = req as AuthRequest;
       await ActivityLogModel.create({
         userId: authReq.user!._id,
-        userName: authReq.user!.email,
+        userName: authReq.user!.name,
         action: "Created Lead",
         entityType: "lead",
         entityId: lead._id,
@@ -252,7 +263,7 @@ export function registerRoutes(app: Express) {
       const salesperson = await UserModel.findById(salespersonId);
       await ActivityLogModel.create({
         userId: authReq.user!._id,
-        userName: authReq.user!.email,
+        userName: authReq.user!.name,
         action: "Assigned Lead",
         entityType: "lead",
         entityId: lead._id,
@@ -286,7 +297,7 @@ export function registerRoutes(app: Express) {
       const authReq = req as AuthRequest;
       await ActivityLogModel.create({
         userId: authReq.user!._id,
-        userName: authReq.user!.email,
+        userName: authReq.user!.name,
         action: "Updated Lead",
         entityType: "lead",
         entityId: lead._id,
@@ -431,7 +442,7 @@ export function registerRoutes(app: Express) {
 
       await ActivityLogModel.create({
         userId: authReq.user!._id,
-        userName: authReq.user!.email,
+        userName: authReq.user!.name,
         action: "Added Lead Interest",
         entityType: "lead",
         entityId: leadId,
@@ -570,7 +581,7 @@ export function registerRoutes(app: Express) {
       const authReq = req as AuthRequest;
       await ActivityLogModel.create({
         userId: authReq.user!._id,
-        userName: authReq.user!.email,
+        userName: authReq.user!.name,
         action: "Created Project",
         entityType: "plot",
         entityId: project._id,
@@ -716,7 +727,7 @@ export function registerRoutes(app: Express) {
       const authReq = req as AuthRequest;
       await ActivityLogModel.create({
         userId: authReq.user!._id,
-        userName: authReq.user!.email,
+        userName: authReq.user!.name,
         action: "Created Plot",
         entityType: "plot",
         entityId: plot._id,
@@ -814,7 +825,7 @@ export function registerRoutes(app: Express) {
       const plot = await PlotModel.findById(plotId);
       await ActivityLogModel.create({
         userId: authReq.user!._id,
-        userName: authReq.user!.email,
+        userName: authReq.user!.name,
         action: "Added Buyer Interest",
         entityType: "plot",
         entityId: plotId,
@@ -882,7 +893,7 @@ export function registerRoutes(app: Express) {
       const plot = await PlotModel.findById(plotId);
       await ActivityLogModel.create({
         userId: authReq.user!._id,
-        userName: authReq.user!.email,
+        userName: authReq.user!.name,
         action: "Created Booking",
         entityType: "payment",
         entityId: payment._id,

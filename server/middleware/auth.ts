@@ -11,6 +11,7 @@ if (!JWT_SECRET) {
 export interface AuthRequest extends Request {
   user?: {
     _id: string;
+    name: string;
     email: string;
     role: UserRole;
   };
@@ -31,6 +32,7 @@ export function authenticateToken(
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as {
       _id: string;
+      name: string;
       email: string;
       role: UserRole;
     };
@@ -48,6 +50,6 @@ export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction
   next();
 }
 
-export function generateToken(payload: { _id: string; email: string; role: UserRole }) {
+export function generateToken(payload: { _id: string; name: string; email: string; role: UserRole }) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "30d" });
 }
