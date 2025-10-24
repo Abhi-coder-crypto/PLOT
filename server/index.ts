@@ -52,7 +52,7 @@ app.use((req, res, next) => {
 (async () => {
   // Connect to MongoDB
   await connectDB();
-  await seedDatabase();
+  // await seedDatabase(); // Commented out to preserve user data
   
   registerRoutes(app);
   const server = createServer(app);
