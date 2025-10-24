@@ -700,23 +700,7 @@ export function registerRoutes(app: Express) {
   // ============= Project Routes =============
   app.get("/api/projects", authenticateToken, async (req, res) => {
     try {
-      const authReq = req as AuthRequest;
-      
-      if (authReq.user!.role === "admin") {
-        const projects = await ProjectModel.find().sort({ createdAt: -1 });
-        return res.json(projects);
-      }
-      
-      const assignedLeads = await LeadModel.find({ assignedTo: authReq.user!._id });
-      const leadIds = assignedLeads.map(lead => String(lead._id));
-      
-      const assignedPayments = await PaymentModel.find({ leadId: { $in: leadIds } });
-      const plotIds = assignedPayments.map(payment => payment.plotId);
-      
-      const assignedPlots = await PlotModel.find({ _id: { $in: plotIds } });
-      const projectIds = Array.from(new Set(assignedPlots.map(plot => plot.projectId)));
-      
-      const projects = await ProjectModel.find({ _id: { $in: projectIds } }).sort({ createdAt: -1 });
+      const projects = await ProjectModel.find().sort({ createdAt: -1 });
       res.json(projects);
     } catch (error: any) {
       console.error("Get projects error:", error);
@@ -853,20 +837,7 @@ export function registerRoutes(app: Express) {
   // ============= Plot Routes =============
   app.get("/api/plots", authenticateToken, async (req, res) => {
     try {
-      const authReq = req as AuthRequest;
-      
-      if (authReq.user!.role === "admin") {
-        const plots = await PlotModel.find().sort({ plotNumber: 1 });
-        return res.json(plots);
-      }
-      
-      const assignedLeads = await LeadModel.find({ assignedTo: authReq.user!._id });
-      const leadIds = assignedLeads.map(lead => String(lead._id));
-      
-      const assignedPayments = await PaymentModel.find({ leadId: { $in: leadIds } });
-      const plotIds = assignedPayments.map(payment => payment.plotId);
-      
-      const plots = await PlotModel.find({ _id: { $in: plotIds } }).sort({ plotNumber: 1 });
+      const plots = await PlotModel.find().sort({ plotNumber: 1 });
       res.json(plots);
     } catch (error: any) {
       console.error("Get plots error:", error);

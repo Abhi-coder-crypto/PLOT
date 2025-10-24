@@ -676,7 +676,7 @@ export default function Leads() {
                                     data-testid={`checkbox-plot-${plot._id}`}
                                   />
                                   <Label className="text-sm font-normal cursor-pointer">
-                                    {plot.plotNumber} ({plot.size})
+                                    {plot.plotNumber} ({plot.size}) - ₹{plot.price.toLocaleString()}
                                   </Label>
                                 </div>
                               ))}
