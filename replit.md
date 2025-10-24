@@ -6,6 +6,15 @@ This is a full-featured Plot Management CRM web application designed for real es
 
 ## Recent Changes (October 2025)
 
+- **Highest Offer Integration Across Lead & Plots Modules** (Oct 24, 2025): Complete implementation of highest offer tracking and display:
+  - Added highest offer field to lead edit form (similar to add form)
+  - Lead create and update endpoints now persist highestOffer on both Lead model and LeadInterest records
+  - Backend automatically upserts LeadInterest when lead is updated with project/plots/highest offer
+  - Clearing project or plots from a lead now properly removes stale LeadInterest records to prevent outdated data
+  - `/api/projects/overview` endpoint now calculates highest offer from BOTH BuyerInterest and LeadInterest sources
+  - Plots module now displays the maximum offer across all interest types (buyer interests and lead interests)
+  - Data integrity ensured: lead updates → LeadInterest upsert/delete → plots overview reflects changes
+  - Form validation uses z.coerce.number() for proper highest offer field handling
 - **Lead Edit Form Enhanced** (Oct 24, 2025): Added comprehensive editing capabilities to leads management:
   - Added project selection dropdown to edit form with cascading plot selection
   - Multi-select checkboxes for plots (filtered by selected project)
