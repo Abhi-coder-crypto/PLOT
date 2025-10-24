@@ -6,13 +6,23 @@ This is a full-featured Plot Management CRM web application designed for real es
 
 ## Recent Changes (October 2025)
 
+- **Complete Lead Interest Integration in Plots Module** (Oct 24, 2025): Seamless display of lead interests alongside buyer interests in plots overview:
+  - **Project-Level**: Total interested buyers count now includes both BuyerInterest and LeadInterest records
+  - **Plot-Level Buyer Count**: Displays combined count from both buyer interests and lead interests
+  - **Salesperson List**: Shows unique salespersons from both buyer interests AND lead assignments (auto-deduped)
+  - **Expanded Interest Details**: Merged view showing both buyer interests and lead interests with:
+    - Type discriminator field ("buyer_interest" vs "lead_interest") for UI differentiation
+    - Proper handling of unassigned salespersons (displays as "Unassigned")
+    - Lead name, contact info, and offered price displayed seamlessly
+  - **Data Integrity**: Null-safe aggregation ensures no display gaps for edge cases
+  - **Backend**: `/api/projects/overview` endpoint enhanced with nested population of lead assignedTo field
 - **Highest Offer Integration Across Lead & Plots Modules** (Oct 24, 2025): Complete implementation of highest offer tracking and display:
   - Added highest offer field to lead edit form (similar to add form)
   - Lead create and update endpoints now persist highestOffer on both Lead model and LeadInterest records
   - Backend automatically upserts LeadInterest when lead is updated with project/plots/highest offer
   - Clearing project or plots from a lead now properly removes stale LeadInterest records to prevent outdated data
-  - `/api/projects/overview` endpoint now calculates highest offer from BOTH BuyerInterest and LeadInterest sources
-  - Plots module now displays the maximum offer across all interest types (buyer interests and lead interests)
+  - `/api/projects/overview` endpoint calculates highest offer from BOTH BuyerInterest and LeadInterest sources
+  - Plots module displays the maximum offer across all interest types (buyer interests and lead interests)
   - Data integrity ensured: lead updates → LeadInterest upsert/delete → plots overview reflects changes
   - Form validation uses z.coerce.number() for proper highest offer field handling
 - **Lead Edit Form Enhanced** (Oct 24, 2025): Added comprehensive editing capabilities to leads management:
