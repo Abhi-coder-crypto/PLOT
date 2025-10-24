@@ -1198,7 +1198,8 @@ export function registerRoutes(app: Express) {
         convertedLeads,
         totalSalespersons,
         totalRevenue,
-        totalBuyerInterests,
+        buyerInterestsCount,
+        leadInterestsCount,
         totalBookings,
         avgResponseTime,
       ] = await Promise.all([
@@ -1210,6 +1211,7 @@ export function registerRoutes(app: Express) {
           { $group: { _id: null, total: { $sum: "$amount" } } },
         ]).then(result => result[0]?.total || 0),
         BuyerInterestModel.countDocuments({ createdAt: { $gte: start, $lte: end } }),
+        LeadInterestModel.countDocuments({ createdAt: { $gte: start, $lte: end } }),
         PaymentModel.countDocuments({ createdAt: { $gte: start, $lte: end } }),
         LeadModel.aggregate([
           { 
@@ -1231,6 +1233,8 @@ export function registerRoutes(app: Express) {
           { $group: { _id: null, avgTime: { $avg: "$responseTime" } } }
         ]).then(result => Math.round(result[0]?.avgTime || 0))
       ]);
+
+      const totalBuyerInterests = buyerInterestsCount + leadInterestsCount;
 
       const conversionRate = totalLeads > 0 ? ((convertedLeads / totalLeads) * 100).toFixed(2) : "0.00";
 
@@ -1352,15 +1356,18 @@ export function registerRoutes(app: Express) {
         const dayStart = new Date(startDate.getTime() + (i * 24 * 60 * 60 * 1000));
         const dayEnd = new Date(dayStart.getTime() + (24 * 60 * 60 * 1000) - 1);
 
-        const [leadsCreated, conversions, buyerInterests, bookings] = await Promise.all([
+        const [leadsCreated, conversions, buyerInterestsCount, leadInterestsCount, bookings] = await Promise.all([
           LeadModel.countDocuments({ createdAt: { $gte: dayStart, $lte: dayEnd } }),
           LeadModel.countDocuments({ 
             status: "Booked", 
             updatedAt: { $gte: dayStart, $lte: dayEnd } 
           }),
           BuyerInterestModel.countDocuments({ createdAt: { $gte: dayStart, $lte: dayEnd } }),
+          LeadInterestModel.countDocuments({ createdAt: { $gte: dayStart, $lte: dayEnd } }),
           PaymentModel.countDocuments({ createdAt: { $gte: dayStart, $lte: dayEnd } }),
         ]);
+
+        const buyerInterests = buyerInterestsCount + leadInterestsCount;
 
         dailyData.push({
           date: dayStart.toISOString().split('T')[0],

@@ -113,6 +113,12 @@ export async function seedDatabase() {
     const p2Plots = await PlotModel.insertMany(project2Plots);
 
     // Create 4 leads with names Abhijeet, Aniket, Sairaj, Pratik
+    // Set October 2025 dates for analytics
+    const oct5 = new Date("2025-10-05T10:00:00");
+    const oct10 = new Date("2025-10-10T14:30:00");
+    const oct15 = new Date("2025-10-15T11:15:00");
+    const oct20 = new Date("2025-10-20T16:45:00");
+    
     const lead1 = await LeadModel.create({
       name: "Abhijeet",
       email: "abhijeet@gmail.com",
@@ -122,6 +128,7 @@ export async function seedDatabase() {
       rating: "Urgent",
       assignedTo: salesperson1._id,
       notes: "Looking for investment plots",
+      createdAt: oct5,
     });
 
     const lead2 = await LeadModel.create({
@@ -133,6 +140,7 @@ export async function seedDatabase() {
       rating: "High",
       assignedTo: salesperson2._id,
       notes: "Interested in bungalow plots",
+      createdAt: oct10,
     });
 
     const lead3 = await LeadModel.create({
@@ -143,8 +151,9 @@ export async function seedDatabase() {
       status: "Interested",
       rating: "High",
       assignedTo: salesperson3._id,
-      followUpDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      followUpDate: new Date("2025-10-25T10:00:00"),
       notes: "Budget 30-40 lakhs",
+      createdAt: oct15,
     });
 
     const lead4 = await LeadModel.create({
@@ -155,17 +164,20 @@ export async function seedDatabase() {
       status: "Site Visit",
       rating: "Urgent",
       assignedTo: salesperson4._id,
-      followUpDate: new Date(),
+      followUpDate: new Date("2025-10-26T14:00:00"),
       notes: "Wants south-facing plots",
+      createdAt: oct20,
     });
 
     // Add lead interests - linking leads to projects/plots
+    // Set createdAt to match lead dates
     await LeadInterestModel.create({
       leadId: lead1._id,
       projectId: project1._id,
       plotIds: [p1Plots[0]._id, p1Plots[1]._id],
       highestOffer: 2600000,
       notes: "Interested in first two plots",
+      createdAt: oct5,
     });
 
     await LeadInterestModel.create({
@@ -174,6 +186,7 @@ export async function seedDatabase() {
       plotIds: [p2Plots[2]._id],
       highestOffer: 3400000,
       notes: "Very interested in plot SH-03",
+      createdAt: oct10,
     });
 
     await LeadInterestModel.create({
@@ -182,6 +195,7 @@ export async function seedDatabase() {
       plotIds: [p1Plots[2]._id, p1Plots[3]._id],
       highestOffer: 2800000,
       notes: "Looking at GV-03 and GV-04",
+      createdAt: oct15,
     });
 
     await LeadInterestModel.create({
@@ -190,6 +204,7 @@ export async function seedDatabase() {
       plotIds: [p2Plots[0]._id, p2Plots[4]._id],
       highestOffer: 3100000,
       notes: "Wants south-facing options",
+      createdAt: oct20,
     });
 
     console.log("Database seeded successfully!");
