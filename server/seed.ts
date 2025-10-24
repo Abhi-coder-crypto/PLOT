@@ -3,15 +3,6 @@ import { UserModel, LeadModel, ProjectModel, PlotModel, LeadInterestModel } from
 
 export async function seedDatabase() {
   try {
-    // Check if admin already exists
-    const adminExists = await UserModel.findOne({ email: "admin@example.com" });
-    
-    if (adminExists) {
-      console.log("Admin user already exists. Skipping seed.");
-      console.log("Login with: admin@example.com / password123");
-      return;
-    }
-    
     console.log("Seeding database with initial data...");
 
     // Clear existing data
@@ -20,16 +11,23 @@ export async function seedDatabase() {
     await PlotModel.deleteMany({});
     await ProjectModel.deleteMany({});
     await UserModel.deleteMany({ role: "salesperson" });
-
-    // Create admin user
+    
+    // Create or get admin user
     const hashedPassword = await bcrypt.hash("password123", 10);
-    const admin = await UserModel.create({
-      name: "Admin User",
-      email: "admin@example.com",
-      password: hashedPassword,
-      role: "admin",
-      phone: "9876543210",
-    });
+    const adminExists = await UserModel.findOne({ email: "admin@example.com" });
+    
+    let admin;
+    if (!adminExists) {
+      admin = await UserModel.create({
+        name: "Admin User",
+        email: "admin@example.com",
+        password: hashedPassword,
+        role: "admin",
+        phone: "9876543210",
+      });
+    } else {
+      admin = adminExists;
+    }
 
     // Create 4 salespersons
     const salesperson1 = await UserModel.create({

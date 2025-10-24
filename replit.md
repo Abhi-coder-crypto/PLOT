@@ -6,6 +6,21 @@ This is a full-featured Plot Management CRM web application designed for real es
 
 ## Recent Changes (October 2025)
 
+- **Lead Creation with Project/Plot Interest** (Oct 24, 2025): Enhanced lead creation workflow to capture property interest at initial contact:
+  - Added project selection dropdown to lead creation form
+  - Cascading plot selection with multi-select checkboxes (filters plots by selected project)
+  - Optional highest offer field for tracking initial price discussion
+  - Automatic LeadInterest record creation when project/plots are selected
+  - Backend API updated to handle optional project/plot data during lead creation
+  - Fixed data type coercion for highestOffer field using z.coerce.number() for proper validation
+  - Form state management handles project/plot selection and resets after submission
+- **Seed Data Updated** (Oct 24, 2025): Refreshed database seeding with specific test data:
+  - 4 leads with specific names: Abhijeet, Aniket, Sairaj, Pratik (emails: @gmail.com)
+  - 4 salespersons: Rahul Sharma, Priya Patel, Amit Singh, Neha Desai
+  - 2 projects: Green Valley Residency (Pune), Sunrise Heights (Mumbai)
+  - 5 plots per project with varied categories, sizes, and prices
+  - Pre-populated LeadInterest records linking leads to specific plots with offers
+  - Database automatically reseeds on server restart (removes old leads/salespersons/projects/plots)
 - **Advanced Analytics Dashboard** (Oct 22, 2025): Comprehensive admin analytics system for team performance monitoring with:
   - 8 KPI overview cards (leads, conversions, revenue, team size, buyer interests, response time, bookings, success rate)
   - Date range filters (today, this week, this month, last 3/6 months) with accurate date calculations

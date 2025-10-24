@@ -87,6 +87,9 @@ export const insertLeadSchema = z.object({
   assignedTo: z.string().optional(),
   followUpDate: z.string().optional(),
   notes: z.string().optional(),
+  projectId: z.string().optional(),
+  plotIds: z.array(z.string()).optional(),
+  highestOffer: z.coerce.number().min(0, "Offer must be positive").optional(),
 });
 
 export type InsertLead = z.infer<typeof insertLeadSchema>;

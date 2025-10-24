@@ -29,10 +29,11 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Lead, User, InsertLead } from "@shared/schema";
+import type { Lead, User, InsertLead, Project, Plot } from "@shared/schema";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -55,6 +56,8 @@ export default function Leads() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [selectedPlotIds, setSelectedPlotIds] = useState<string[]>([]);
   const { toast } = useToast();
   const { isAdmin } = useAuth();
 
@@ -67,6 +70,19 @@ export default function Leads() {
     enabled: isAdmin,
   });
 
+  const { data: projects } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+  });
+
+  const { data: plots } = useQuery<Plot[]>({
+    queryKey: ["/api/plots"],
+  });
+
+  // Filter plots by selected project
+  const filteredPlots = plots?.filter(plot => 
+    selectedProjectId ? plot.projectId === selectedProjectId : true
+  ) || [];
+
   const form = useForm<InsertLead>({
     resolver: zodResolver(insertLeadSchema),
     defaultValues: {
@@ -77,6 +93,9 @@ export default function Leads() {
       status: "New",
       rating: "High",
       notes: "",
+      projectId: "",
+      plotIds: [],
+      highestOffer: 0,
     },
   });
 
@@ -97,8 +116,12 @@ export default function Leads() {
     mutationFn: (data: InsertLead) => apiRequest("POST", "/api/leads", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       toast({ title: "Lead created successfully" });
       setIsAddDialogOpen(false);
+      setSelectedProjectId("");
+      setSelectedPlotIds([]);
       form.reset();
     },
     onError: (error: any) => {
@@ -369,11 +392,107 @@ export default function Leads() {
                     </FormItem>
                   )}
                 />
+
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Project Interest (Optional)</h3>
+                  
+                  <FormField
+                    control={form.control}
+                    name="projectId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Project</FormLabel>
+                        <Select 
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            setSelectedProjectId(value);
+                            setSelectedPlotIds([]);
+                            form.setValue("plotIds", []);
+                          }} 
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-lead-project">
+                              <SelectValue placeholder="Select a project" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {projects?.map((project) => (
+                              <SelectItem key={project._id} value={project._id}>
+                                {project.name} - {project.location}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {selectedProjectId && (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="plotIds"
+                        render={({ field }) => (
+                          <FormItem className="mt-4">
+                            <FormLabel>Select Plots</FormLabel>
+                            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                              {filteredPlots.map((plot) => (
+                                <div key={plot._id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    checked={field.value?.includes(plot._id)}
+                                    onCheckedChange={(checked) => {
+                                      const updatedPlots = checked
+                                        ? [...(field.value || []), plot._id]
+                                        : (field.value || []).filter((id) => id !== plot._id);
+                                      field.onChange(updatedPlots);
+                                      setSelectedPlotIds(updatedPlots);
+                                    }}
+                                    data-testid={`checkbox-plot-${plot._id}`}
+                                  />
+                                  <Label className="text-sm font-normal cursor-pointer">
+                                    {plot.plotNumber} ({plot.size})
+                                  </Label>
+                                </div>
+                              ))}
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="highestOffer"
+                        render={({ field }) => (
+                          <FormItem className="mt-4">
+                            <FormLabel>Highest Offer (Optional)</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                placeholder="Enter amount" 
+                                {...field}
+                                data-testid="input-lead-offer" 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
+                </div>
+
                 <div className="flex justify-end gap-2">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setIsAddDialogOpen(false)}
+                    onClick={() => {
+                      setIsAddDialogOpen(false);
+                      setSelectedProjectId("");
+                      setSelectedPlotIds([]);
+                    }}
                     data-testid="button-cancel-lead"
                   >
                     Cancel

@@ -189,7 +189,19 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ message: "Invalid request data" });
       }
 
-      const lead = await LeadModel.create(validationResult.data);
+      const { projectId, plotIds, highestOffer, ...leadData } = validationResult.data;
+      const lead = await LeadModel.create(leadData);
+
+      // If project and plots are selected, create a lead interest record
+      if (projectId && plotIds && plotIds.length > 0) {
+        await LeadInterestModel.create({
+          leadId: lead._id,
+          projectId,
+          plotIds,
+          highestOffer: highestOffer || 0,
+          notes: `Initial interest from lead creation`,
+        });
+      }
 
       // Log activity
       const authReq = req as AuthRequest;
@@ -199,7 +211,7 @@ export function registerRoutes(app: Express) {
         action: "Created Lead",
         entityType: "lead",
         entityId: lead._id,
-        details: `Created lead for ${lead.name}`,
+        details: `Created lead for ${lead.name}${projectId ? ' with project interest' : ''}`,
       });
 
       res.status(201).json(lead);
