@@ -639,50 +639,27 @@ export function registerRoutes(app: Express) {
   // Get projects with plot and buyer interest overview
   app.get("/api/projects/overview", authenticateToken, async (req, res) => {
     try {
-      // First, get all lead interests to know which projects have interests
-      const allLeadInterests = await LeadInterestModel.find().populate({
-        path: "leadId",
-        select: "name phone email assignedTo",
-        populate: {
-          path: "assignedTo",
-          select: "name email"
-        }
-      });
-      
-      // Get unique project IDs that have lead interests
-      const projectIdsWithInterests = Array.from(new Set(
-        allLeadInterests.map(li => String(li.projectId))
-      ));
-      
-      // Only fetch projects that have lead interests
-      const projects = await ProjectModel.find({ 
-        _id: { $in: projectIdsWithInterests } 
-      }).sort({ createdAt: -1 });
+      const projects = await ProjectModel.find().sort({ createdAt: -1 });
       
       const projectsOverview = await Promise.all(
         projects.map(async (project) => {
           const projectId = String(project._id);
           
-          // Get lead interests for this project
-          const leadInterests = allLeadInterests.filter(
-            li => String(li.projectId) === projectId
-          );
+          // Get all plots for this project
+          const plots = await PlotModel.find({ projectId }).sort({ plotNumber: 1 });
           
-          // Get unique plot IDs that have lead interests in this project
-          const plotIdsWithInterests = Array.from(new Set(
-            leadInterests.flatMap(li => li.plotIds.map(pid => String(pid)))
-          ));
-          
-          // Only get plots that have lead interests
-          const plots = await PlotModel.find({ 
-            _id: { $in: plotIdsWithInterests } 
-          }).sort({ plotNumber: 1 });
-          
-          // Get buyer interests for plots (if any)
+          // Get lead interests for all plots in this project
           const plotIds = plots.map(p => String(p._id));
-          const buyerInterests = await BuyerInterestModel.find({ 
-            plotId: { $in: plotIds } 
-          }).populate("salespersonId", "name email");
+          const leadInterests = await LeadInterestModel.find({
+            plotIds: { $in: plotIds }
+          }).populate({
+            path: "leadId",
+            select: "name phone email assignedTo",
+            populate: {
+              path: "assignedTo",
+              select: "name email"
+            }
+          });
           
           // Calculate project-level stats
           const availablePlots = plots.filter(p => p.status === "Available").length;
