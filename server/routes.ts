@@ -304,7 +304,7 @@ export function registerRoutes(app: Express) {
         return res.status(404).json({ message: "Lead not found" });
       }
 
-      // Handle LeadInterest upsert if project and plots are provided
+      // Handle LeadInterest management based on project and plot data
       if (projectId && plotIds && plotIds.length > 0) {
         // Find existing lead interest for this lead and project
         const existingInterest = await LeadInterestModel.findOne({
@@ -329,8 +329,9 @@ export function registerRoutes(app: Express) {
             notes: `Added from lead edit on ${new Date().toISOString()}`,
           });
         }
-      } else if (!projectId) {
-        // If project is cleared, remove all lead interests for this lead
+      } else {
+        // If project is cleared OR plots are empty, remove all lead interests for this lead
+        // This ensures stale data doesn't persist in the plots overview
         await LeadInterestModel.deleteMany({ leadId: lead._id });
       }
 
