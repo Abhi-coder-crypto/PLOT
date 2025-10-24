@@ -1,11 +1,12 @@
 import bcrypt from "bcryptjs";
-import { UserModel, LeadModel, ProjectModel, PlotModel, LeadInterestModel } from "./models";
+import { UserModel, LeadModel, ProjectModel, PlotModel, LeadInterestModel, BuyerInterestModel } from "./models";
 
 export async function seedDatabase() {
   try {
     console.log("Seeding database with initial data...");
 
     // Clear existing data
+    await BuyerInterestModel.deleteMany({});
     await LeadInterestModel.deleteMany({});
     await LeadModel.deleteMany({});
     await PlotModel.deleteMany({});
@@ -205,6 +206,47 @@ export async function seedDatabase() {
       highestOffer: 3100000,
       notes: "Wants south-facing options",
       createdAt: oct20,
+    });
+
+    // Create some BuyerInterest records with October dates
+    const oct7 = new Date("2025-10-07T13:20:00");
+    const oct12 = new Date("2025-10-12T15:45:00");
+    const oct18 = new Date("2025-10-18T09:30:00");
+    
+    await BuyerInterestModel.create({
+      buyerName: "Rajesh Kumar",
+      buyerEmail: "rajesh@example.com",
+      buyerContact: "9876543220",
+      plotId: p1Plots[4]._id,
+      offeredPrice: 2950000,
+      salespersonId: salesperson1._id,
+      salespersonName: "Rahul Sharma",
+      notes: "Looking for open plot for commercial use",
+      createdAt: oct7,
+    });
+
+    await BuyerInterestModel.create({
+      buyerName: "Sneha Joshi",
+      buyerEmail: "sneha@example.com",
+      buyerContact: "9876543221",
+      plotId: p2Plots[1]._id,
+      offeredPrice: 3250000,
+      salespersonId: salesperson2._id,
+      salespersonName: "Priya Patel",
+      notes: "Interested in Sunrise Heights bungalow plot",
+      createdAt: oct12,
+    });
+
+    await BuyerInterestModel.create({
+      buyerName: "Vikram Mehta",
+      buyerEmail: "vikram@example.com",
+      buyerContact: "9876543222",
+      plotId: p1Plots[3]._id,
+      offeredPrice: 2850000,
+      salespersonId: salesperson3._id,
+      salespersonName: "Amit Singh",
+      notes: "Commercial plot inquiry for retail outlet",
+      createdAt: oct18,
     });
 
     console.log("Database seeded successfully!");
