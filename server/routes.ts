@@ -829,10 +829,43 @@ export function registerRoutes(app: Express) {
   app.get("/api/buyer-interests/:plotId", authenticateToken, async (req, res) => {
     try {
       const { plotId } = req.params;
-      const interests = await BuyerInterestModel.find({ plotId })
-        .populate("salespersonId", "name email phone")
+      
+      // Find all lead interests that include this plot
+      const leadInterests = await LeadInterestModel.find({ 
+        plotIds: plotId 
+      })
+        .populate("leadId", "name contact email")
         .sort({ createdAt: -1 });
-      res.json(interests);
+      
+      // Transform to match the expected format
+      const transformedInterests = await Promise.all(
+        leadInterests.map(async (interest) => {
+          const lead = interest.leadId as any;
+          
+          // Get salesperson info from the lead
+          let salespersonName = "N/A";
+          if (lead.assignedTo) {
+            const salesperson = await UserModel.findById(lead.assignedTo);
+            if (salesperson) {
+              salespersonName = salesperson.name;
+            }
+          }
+          
+          return {
+            _id: String(interest._id),
+            buyerName: lead.name,
+            buyerContact: lead.contact,
+            buyerEmail: lead.email || "",
+            offeredPrice: interest.highestOffer,
+            salespersonName,
+            notes: interest.notes || "",
+            createdAt: interest.createdAt,
+            updatedAt: interest.updatedAt,
+          };
+        })
+      );
+      
+      res.json(transformedInterests);
     } catch (error: any) {
       console.error("Get buyer interests error:", error);
       res.status(500).json({ message: "Failed to fetch buyer interests" });
