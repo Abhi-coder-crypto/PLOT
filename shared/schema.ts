@@ -61,6 +61,12 @@ export const loginSchema = z.object({
 export type LoginCredentials = z.infer<typeof loginSchema>;
 
 // ============= Lead Schema =============
+export interface PopulatedUser {
+  _id: string;
+  name: string;
+  email: string;
+}
+
 export interface Lead {
   _id: string;
   name: string;
@@ -69,10 +75,13 @@ export interface Lead {
   source: LeadSource;
   status: LeadStatus;
   rating: LeadRating;
-  assignedTo?: string;
+  assignedTo?: string | PopulatedUser;
   assignedBy?: string;
   followUpDate?: Date;
   notes?: string;
+  projectId?: string;
+  plotIds?: string[];
+  highestOffer?: number;
   createdAt: Date;
   updatedAt: Date;
 }

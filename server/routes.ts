@@ -144,7 +144,9 @@ export function registerRoutes(app: Express) {
         ? {} 
         : { assignedTo: authReq.user!._id };
 
-      const leads = await LeadModel.find(query).sort({ createdAt: -1 });
+      const leads = await LeadModel.find(query)
+        .populate("assignedTo", "name email")
+        .sort({ createdAt: -1 });
       res.json(leads);
     } catch (error: any) {
       console.error("Get leads error:", error);
@@ -174,7 +176,9 @@ export function registerRoutes(app: Express) {
             },
           };
 
-      const leads = await LeadModel.find(query).sort({ followUpDate: 1 });
+      const leads = await LeadModel.find(query)
+        .populate("assignedTo", "name email")
+        .sort({ followUpDate: 1 });
       res.json(leads);
     } catch (error: any) {
       console.error("Get today followups error:", error);

@@ -65,6 +65,9 @@ const leadSchema = new Schema<ILead>(
     assignedBy: { type: Schema.Types.ObjectId, ref: "User" },
     followUpDate: Date,
     notes: String,
+    projectId: { type: Schema.Types.ObjectId, ref: "Project" },
+    plotIds: [{ type: Schema.Types.ObjectId, ref: "Plot" }],
+    highestOffer: Number,
   },
   { timestamps: true }
 );

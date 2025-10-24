@@ -33,7 +33,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Lead, User, InsertLead, Project, Plot } from "@shared/schema";
+import type { Lead, User, InsertLead, Project, Plot, PopulatedUser } from "@shared/schema";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -58,6 +58,8 @@ export default function Leads() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedPlotIds, setSelectedPlotIds] = useState<string[]>([]);
+  const [editProjectId, setEditProjectId] = useState<string>("");
+  const [editPlotIds, setEditPlotIds] = useState<string[]>([]);
   const { toast } = useToast();
   const { isAdmin } = useAuth();
 
@@ -81,6 +83,11 @@ export default function Leads() {
   // Filter plots by selected project
   const filteredPlots = plots?.filter(plot => 
     selectedProjectId ? plot.projectId === selectedProjectId : true
+  ) || [];
+  
+  // Filter plots for edit mode
+  const editFilteredPlots = plots?.filter(plot => 
+    editProjectId ? plot.projectId === editProjectId : true
   ) || [];
 
   const form = useForm<InsertLead>({
@@ -109,6 +116,9 @@ export default function Leads() {
       status: "New",
       rating: "High",
       notes: "",
+      projectId: "",
+      plotIds: [],
+      assignedTo: "",
     },
   });
 
@@ -202,6 +212,11 @@ export default function Leads() {
 
   const handleEdit = (lead: Lead) => {
     setSelectedLead(lead);
+    setEditProjectId(lead.projectId || "");
+    setEditPlotIds(lead.plotIds || []);
+    const assignedToId = lead.assignedTo 
+      ? (typeof lead.assignedTo === 'object' ? (lead.assignedTo as PopulatedUser)._id : lead.assignedTo)
+      : "";
     editForm.reset({
       name: lead.name,
       email: lead.email || "",
@@ -211,6 +226,9 @@ export default function Leads() {
       rating: lead.rating,
       followUpDate: lead.followUpDate ? new Date(lead.followUpDate).toISOString().slice(0, 16) : "",
       notes: lead.notes || "",
+      projectId: lead.projectId || "",
+      plotIds: lead.plotIds || [],
+      assignedTo: assignedToId,
     });
     setIsEditDialogOpen(true);
   };
@@ -604,7 +622,11 @@ export default function Leads() {
                   {isAdmin && (
                     <TableCell>
                       {lead.assignedTo ? (
-                        <span className="text-sm">Assigned</span>
+                        <span className="text-sm" data-testid={`text-assigned-to-${lead._id}`}>
+                          {typeof lead.assignedTo === 'object' 
+                            ? (lead.assignedTo as PopulatedUser).name 
+                            : 'Assigned'}
+                        </span>
                       ) : (
                         <Button
                           size="sm"
@@ -868,6 +890,93 @@ export default function Leads() {
                   </FormItem>
                 )}
               />
+              {isAdmin && (
+                <FormField
+                  control={editForm.control}
+                  name="assignedTo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assigned Salesperson (Optional)</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-lead-salesperson">
+                            <SelectValue placeholder="Not assigned" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {salespersons?.map((sp) => (
+                            <SelectItem key={sp._id} value={sp._id}>
+                              {sp.name} ({sp.email})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              <FormField
+                control={editForm.control}
+                name="projectId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Project (Optional)</FormLabel>
+                    <Select 
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        setEditProjectId(value);
+                        setEditPlotIds([]);
+                        editForm.setValue("plotIds", []);
+                      }} 
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-edit-lead-project">
+                          <SelectValue placeholder="No project selected" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {projects?.map((project) => (
+                          <SelectItem key={project._id} value={project._id}>
+                            {project.name} - {project.location}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {editProjectId && editFilteredPlots.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Select Plots (Optional)</Label>
+                  <div className="border rounded-md p-4 max-h-48 overflow-y-auto space-y-2">
+                    {editFilteredPlots.map((plot) => (
+                      <div key={plot._id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`edit-plot-${plot._id}`}
+                          checked={editPlotIds.includes(plot._id)}
+                          onCheckedChange={(checked) => {
+                            const newPlotIds = checked
+                              ? [...editPlotIds, plot._id]
+                              : editPlotIds.filter((id) => id !== plot._id);
+                            setEditPlotIds(newPlotIds);
+                            editForm.setValue("plotIds", newPlotIds);
+                          }}
+                          data-testid={`checkbox-edit-plot-${plot._id}`}
+                        />
+                        <label
+                          htmlFor={`edit-plot-${plot._id}`}
+                          className="text-sm cursor-pointer"
+                        >
+                          Plot #{plot.plotNumber} - {plot.size} - ₹{plot.price.toLocaleString()}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <FormField
                 control={editForm.control}
                 name="notes"
