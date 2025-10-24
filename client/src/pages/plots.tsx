@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Building2, Search, ChevronDown, ChevronRight, Users, TrendingUp, Phone, Mail, User, DollarSign, X } from "lucide-react";
+import { Plus, Building2, Search, ChevronDown, ChevronRight, Users, TrendingUp, Phone, Mail, User, DollarSign, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +31,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Project, InsertPlot, InsertProject, User as UserType } from "@shared/schema";
+import type { Project, InsertPlot, InsertProject, User as UserType, BuyerInterest } from "@shared/schema";
 import { plotStatuses, plotCategories } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -78,6 +78,8 @@ export default function Plots() {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
+  const [isBuyerInterestDialogOpen, setIsBuyerInterestDialogOpen] = useState(false);
   const { toast } = useToast();
   const { isAdmin } = useAuth();
 
@@ -87,6 +89,11 @@ export default function Plots() {
 
   const { data: salespersons } = useQuery<UserType[]>({
     queryKey: ["/api/users/salespersons"],
+  });
+
+  const { data: buyerInterests, isLoading: isLoadingInterests } = useQuery<BuyerInterest[]>({
+    queryKey: ["/api/buyer-interests", selectedPlotId],
+    enabled: !!selectedPlotId && isBuyerInterestDialogOpen,
   });
 
   const projectForm = useForm<InsertProject>({
@@ -158,6 +165,12 @@ export default function Plots() {
       newExpanded.add(projectId);
     }
     setExpandedProjects(newExpanded);
+  };
+
+  const handleBuyerInterestClick = (plotId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setSelectedPlotId(plotId);
+    setIsBuyerInterestDialogOpen(true);
   };
 
 
@@ -616,7 +629,12 @@ export default function Plots() {
                                         </Badge>
                                       </TableCell>
                                       <TableCell className="text-center">
-                                        <Badge variant="outline" className="gap-1">
+                                        <Badge 
+                                          variant="outline" 
+                                          className={`gap-1 ${plot.buyerInterestCount > 0 ? 'cursor-pointer hover:bg-primary/10 hover:border-primary transition-colors' : ''}`}
+                                          onClick={plot.buyerInterestCount > 0 ? (e) => handleBuyerInterestClick(plot._id, e) : undefined}
+                                          data-testid={`badge-buyer-interest-${plot._id}`}
+                                        >
                                           <Users className="h-3 w-3" />
                                           {plot.buyerInterestCount}
                                         </Badge>
@@ -674,6 +692,144 @@ export default function Plots() {
           </CardContent>
         </Card>
       )}
+
+      {/* Buyer Interest Dialog */}
+      <Dialog open={isBuyerInterestDialogOpen} onOpenChange={setIsBuyerInterestDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Buyer Interests
+            </DialogTitle>
+            <DialogDescription>
+              View all interested buyers for this plot
+            </DialogDescription>
+          </DialogHeader>
+
+          {isLoadingInterests ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : buyerInterests && buyerInterests.length > 0 ? (
+            <div className="space-y-4">
+              {buyerInterests.map((interest, index) => (
+                <Card key={interest._id} className="overflow-hidden" data-testid={`card-buyer-interest-${index}`}>
+                  <CardContent className="p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 p-2 rounded-full bg-primary/10">
+                            <User className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs text-muted-foreground">Buyer Name</p>
+                            <p className="font-semibold" data-testid={`text-buyer-name-${index}`}>
+                              {interest.buyerName}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 p-2 rounded-full bg-primary/10">
+                            <Phone className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs text-muted-foreground">Contact</p>
+                            <p className="font-medium" data-testid={`text-buyer-contact-${index}`}>
+                              {interest.buyerContact}
+                            </p>
+                          </div>
+                        </div>
+
+                        {interest.buyerEmail && (
+                          <div className="flex items-start gap-3">
+                            <div className="mt-1 p-2 rounded-full bg-primary/10">
+                              <Mail className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs text-muted-foreground">Email</p>
+                              <p className="font-medium text-sm break-all" data-testid={`text-buyer-email-${index}`}>
+                                {interest.buyerEmail}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 p-2 rounded-full bg-green-100 dark:bg-green-900">
+                            <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs text-muted-foreground">Offered Price</p>
+                            <p className="font-bold text-lg text-green-600 dark:text-green-400" data-testid={`text-offered-price-${index}`}>
+                              {formatCurrency(interest.offeredPrice)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 p-2 rounded-full bg-primary/10">
+                            <User className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs text-muted-foreground">Salesperson</p>
+                            <p className="font-medium" data-testid={`text-salesperson-${index}`}>
+                              {interest.salespersonName}
+                            </p>
+                          </div>
+                        </div>
+
+                        {interest.notes && (
+                          <div className="flex items-start gap-3">
+                            <div className="mt-1 p-2 rounded-full bg-primary/10">
+                              <FileText className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs text-muted-foreground">Notes</p>
+                              <p className="text-sm text-muted-foreground" data-testid={`text-notes-${index}`}>
+                                {interest.notes}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator className="my-3" />
+                    
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>
+                        Added: {new Date(interest.createdAt).toLocaleDateString('en-IN', { 
+                          day: 'numeric', 
+                          month: 'short', 
+                          year: 'numeric' 
+                        })}
+                      </span>
+                      <span>
+                        Updated: {new Date(interest.updatedAt).toLocaleDateString('en-IN', { 
+                          day: 'numeric', 
+                          month: 'short', 
+                          year: 'numeric' 
+                        })}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Users className="h-12 w-12 text-muted-foreground/50 mb-3" />
+              <p className="font-medium text-foreground">No buyer interests yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Buyer interests will appear here once added
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
